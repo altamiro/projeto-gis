@@ -1,19 +1,22 @@
-// src/services/arcgis.js - Versão atualizada
 import Map from "@arcgis/core/Map";
 import MapView from "@arcgis/core/views/MapView";
 import GraphicsLayer from "@arcgis/core/layers/GraphicsLayer";
 import Graphic from "@arcgis/core/Graphic";
 import Polygon from "@arcgis/core/geometry/Polygon";
 import Point from "@arcgis/core/geometry/Point";
+import SpatialReference from "@arcgis/core/geometry/SpatialReference";
+import Draw from "@arcgis/core/views/draw/Draw";
 import * as geometryEngine from "@arcgis/core/geometry/geometryEngine";
 import * as projection from "@arcgis/core/geometry/projection";
-import SpatialReference from "@arcgis/core/geometry/SpatialReference";
 import * as intersectionOperator from "@arcgis/core/geometry/operators/intersectionOperator";
 import * as containsOperator from "@arcgis/core/geometry/operators/containsOperator";
 import * as projectOperator from "@arcgis/core/geometry/operators/projectOperator";
 import * as coordinateFormatter from "@arcgis/core/geometry/coordinateFormatter";
-import Draw from "@arcgis/core/views/draw/Draw";
+import * as centroidOperator from "@arcgis/core/geometry/operators/centroidOperator";
+
 import colors from "../utils/colors";
+
+import locationIcon from "@/assets/localizacao.png";
 
 export class ArcGISService {
   constructor() {
@@ -23,9 +26,14 @@ export class ArcGISService {
     this.layers = {};
     this.tempSymbolState = "default";
     this.municipalityLayer = null;
+    this.centroidLayer = null;
+    this.projectionLoaded = false;
   }
 
   initializeMap(container) {
+    // Carregar a projeção antecipadamente para evitar problemas
+    this.loadProjection();
+
     // Criar o mapa base com satellite explicitamente definido
     this.map = new Map({
       basemap: "satellite",
@@ -60,6 +68,12 @@ export class ArcGISService {
     });
     this.map.add(this.municipalityLayer);
 
+    // Inicializar camada para o centróide
+    this.centroidLayer = new GraphicsLayer({
+      id: "centroid",
+    });
+    this.map.add(this.centroidLayer);
+
     // Inicializar camadas gráficas para cada tipo de camada
     const layerTypes = [
       "propertyArea",
@@ -89,16 +103,34 @@ export class ArcGISService {
     return this.view.when();
   }
 
+  // Método para carregar a projeção antecipadamente
+  loadProjection() {
+    if (coordinateFormatter.isSupported()) {
+      projection.load()
+        .then(() => {
+          console.log("Módulo de projeção carregado com sucesso");
+          this.projectionLoaded = true;
+        })
+        .catch(err => {
+          console.warn("Erro ao carregar módulo de projeção:", err);
+          this.projectionLoaded = false;
+        });
+    } else {
+      console.warn("Projeção não suportada neste ambiente");
+      this.projectionLoaded = false;
+    }
+  }
+
   // Método atualizado para exibir geometria do município
-  // Correção para o método no arquivo src/services/arcgis.js
   displayMunicipality(municipality) {
     if (!municipality || !municipality.geometry) {
       console.error("Município sem geometria válida");
       return null;
     }
 
-    // Limpar camada do município
+    // Limpar camada do município e do centróide
     this.municipalityLayer.removeAll();
+    this.centroidLayer.removeAll();
 
     try {
       // Converter a geometria GeoJSON para ArcGIS Polygon
@@ -112,49 +144,88 @@ export class ArcGISService {
 
       console.log("Geometria do município carregada:", polygonGeometry);
 
-      // Verificar se o sistema de projeção está disponível
-      if (coordinateFormatter.isSupported()) {
-        // Carregar módulo de projeção
+      // Tentativa de reprojetar a geometria (se necessário)
+      const viewSR = this.view.spatialReference;
+      let finalGeometry = polygonGeometry;
+
+      // Reprojetar a geometria do município para o mesmo SR da vista
+      if (this.projectionLoaded && 
+          polygonGeometry.spatialReference.wkid !== viewSR.wkid) {
         try {
-          projection.load();
+          finalGeometry = projection.project(polygonGeometry, viewSR);
+          console.log(
+            "Município reprojetado de",
+            polygonGeometry.spatialReference.wkid,
+            "para",
+            viewSR.wkid
+          );
         } catch (e) {
-          console.warn("Erro ao carregar módulo de projeção:", e);
-        }
-
-        // Definir o sistema de referência da vista (geralmente Web Mercator)
-        const viewSR = this.view.spatialReference;
-
-        // Reprojetar a geometria do município para o mesmo SR da vista
-        if (polygonGeometry.spatialReference.wkid !== viewSR.wkid) {
-          try {
-            const projectedGeometry = projection.project(
-              polygonGeometry,
-              viewSR
-            );
-
-            console.log(
-              "Município reprojetado de",
-              polygonGeometry.spatialReference.wkid,
-              "para",
-              viewSR.wkid
-            );
-
-            // Usar a geometria reprojetada para visualização e validações
-            this.displayMunicipalityGraphic(projectedGeometry, municipality);
-            return projectedGeometry;
-          } catch (e) {
-            console.warn("Erro ao reprojetar município:", e);
-            // Continuar com a geometria original em caso de erro
-          }
+          console.warn("Erro ao reprojetar município, usando geometria original:", e);
+          finalGeometry = polygonGeometry;
         }
       }
 
-      // Se a reprojeção falhar ou não for suportada, usar a geometria original
-      this.displayMunicipalityGraphic(polygonGeometry, municipality);
-      return polygonGeometry;
+      // Exibir a geometria do município
+      this.displayMunicipalityGraphic(finalGeometry, municipality);
+      
+      // Calcular e exibir o centróide
+      this.displayCentroid(finalGeometry, municipality);
+      
+      return finalGeometry;
     } catch (error) {
       console.error("Erro ao exibir município:", error);
       return null;
+    }
+  }
+
+  // Novo método para calcular e exibir o centróide do município
+  displayCentroid(geometry, municipality) {
+    if (!geometry || !municipality) {
+      console.error("Geometria ou município inválido para cálculo de centróide");
+      return;
+    }
+
+    try {
+      // Calcular o centróide da geometria
+      const centroid = this.centroid(geometry);
+      
+      if (!centroid) {
+        console.error("Não foi possível calcular o centróide do município");
+        return;
+      }
+      
+      console.log("Centróide calculado:", centroid);
+      
+      // Configurar o URL do ícone
+      const iconUrl = `${process.env.BASE_URL || '/'}img/localizacao.png`;
+      
+      // Criar símbolo de imagem para o centróide
+      const pictureSymbol = {
+        type: "picture-marker",
+        url: locationIcon,
+        width: 32,
+        height: 32,
+        // Ajustar o deslocamento para que o ponto de ancoragem seja o centro da imagem
+        xoffset: 0,
+        yoffset: 16 // Deslocamento vertical para que a parte inferior do ícone aponte para o local exato
+      };
+      
+      // Criar gráfico para o centróide
+      const centroidGraphic = new Graphic({
+        geometry: centroid,
+        symbol: pictureSymbol,
+        attributes: {
+          id: `centroid-${municipality.id}`,
+          name: `Centróide de ${municipality.name}`
+        }
+      });
+      
+      // Adicionar à camada de centróide
+      this.centroidLayer.add(centroidGraphic);
+      
+      console.log("Centróide adicionado ao mapa");
+    } catch (error) {
+      console.error("Erro ao exibir centróide:", error);
     }
   }
 
@@ -535,6 +606,10 @@ export class ArcGISService {
 
   project(geometry, targetSpatialReference) {
     return projectOperator.execute(geometry, targetSpatialReference);
+  }
+
+  centroid(geometry) {
+    return centroidOperator.execute(polygon);
   }
 
   getDefaultSymbol(layerId) {
