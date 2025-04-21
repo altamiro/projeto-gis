@@ -6,9 +6,12 @@ import Graphic from "@arcgis/core/Graphic";
 import Polygon from "@arcgis/core/geometry/Polygon";
 import Point from "@arcgis/core/geometry/Point";
 import * as geometryEngine from "@arcgis/core/geometry/geometryEngine";
+import * as projection from "@arcgis/core/geometry/projection";
+import SpatialReference from "@arcgis/core/geometry/SpatialReference";
 import * as intersectionOperator from "@arcgis/core/geometry/operators/intersectionOperator";
 import * as containsOperator from "@arcgis/core/geometry/operators/containsOperator";
 import * as projectOperator from "@arcgis/core/geometry/operators/projectOperator";
+import * as coordinateFormatter from "@arcgis/core/geometry/coordinateFormatter";
 import Draw from "@arcgis/core/views/draw/Draw";
 import colors from "../utils/colors";
 
@@ -90,69 +93,111 @@ export class ArcGISService {
   // Correção para o método no arquivo src/services/arcgis.js
   displayMunicipality(municipality) {
     if (!municipality || !municipality.geometry) {
-      console.error('Município sem geometria válida');
+      console.error("Município sem geometria válida");
       return null;
     }
-  
+
     // Limpar camada do município
     this.municipalityLayer.removeAll();
-  
+
     try {
       // Converter a geometria GeoJSON para ArcGIS Polygon
       const rings = municipality.geometry.coordinates;
-      
+
       // SIRGAS 2000 para o Brasil (wkid 4674)
       const polygonGeometry = new Polygon({
         rings: rings,
-        spatialReference: { wkid: 4674 }
+        spatialReference: { wkid: 4674 },
       });
-  
+
       console.log("Geometria do município carregada:", polygonGeometry);
-  
-      // Definir símbolo para o município
-      const municipalitySymbol = {
-        type: "simple-fill",
-        color: [173, 216, 230, 0.1],
-        outline: {
-          color: [0, 0, 255, 0.8],
-          width: 2
+
+      // Verificar se o sistema de projeção está disponível
+      if (coordinateFormatter.isSupported()) {
+        // Carregar módulo de projeção
+        try {
+          projection.load();
+        } catch (e) {
+          console.warn("Erro ao carregar módulo de projeção:", e);
         }
-      };
-  
-      // Criar gráfico e adicionar à camada
-      const municipalityGraphic = new Graphic({
-        geometry: polygonGeometry,
-        symbol: municipalitySymbol,
-        attributes: {
-          id: municipality.id,
-          name: municipality.name
+
+        // Definir o sistema de referência da vista (geralmente Web Mercator)
+        const viewSR = this.view.spatialReference;
+
+        // Reprojetar a geometria do município para o mesmo SR da vista
+        if (polygonGeometry.spatialReference.wkid !== viewSR.wkid) {
+          try {
+            const projectedGeometry = projection.project(
+              polygonGeometry,
+              viewSR
+            );
+
+            console.log(
+              "Município reprojetado de",
+              polygonGeometry.spatialReference.wkid,
+              "para",
+              viewSR.wkid
+            );
+
+            // Usar a geometria reprojetada para visualização e validações
+            this.displayMunicipalityGraphic(projectedGeometry, municipality);
+            return projectedGeometry;
+          } catch (e) {
+            console.warn("Erro ao reprojetar município:", e);
+            // Continuar com a geometria original em caso de erro
+          }
         }
-      });
-  
-      this.municipalityLayer.add(municipalityGraphic);
-  
-      // Configurar mapa
-      if (this.map.basemap.id !== "satellite") {
-        this.map.basemap = "satellite";
       }
-  
-      // Centralizar no município
-      this.view.goTo(
-        {
-          target: polygonGeometry,
-          scale: 50000
-        }, 
-        {
-          duration: 1000,
-          easing: "ease-in-out"
-        }
-      );
-  
+
+      // Se a reprojeção falhar ou não for suportada, usar a geometria original
+      this.displayMunicipalityGraphic(polygonGeometry, municipality);
       return polygonGeometry;
     } catch (error) {
-      console.error('Erro ao exibir município:', error);
+      console.error("Erro ao exibir município:", error);
       return null;
     }
+  }
+
+  // Método auxiliar para exibir o gráfico do município
+  displayMunicipalityGraphic(geometry, municipality) {
+    // Definir símbolo para o município
+    const municipalitySymbol = {
+      type: "simple-fill",
+      color: [173, 216, 230, 0.1],
+      outline: {
+        color: [0, 0, 255, 0.8],
+        width: 2,
+      },
+    };
+
+    // Criar gráfico e adicionar à camada
+    const municipalityGraphic = new Graphic({
+      geometry: geometry,
+      symbol: municipalitySymbol,
+      attributes: {
+        id: municipality.id,
+        name: municipality.name,
+      },
+    });
+
+    this.municipalityLayer.add(municipalityGraphic);
+
+    // Configurar mapa
+    if (this.map.basemap.id !== "satellite") {
+      this.map.basemap = "satellite";
+    }
+
+    // Centralizar no município
+    this.view.goTo(
+      {
+        target: geometry,
+        scale: 50000,
+      },
+      {
+        duration: 1000,
+        easing: "ease-in-out",
+      }
+    );
   }
 
   // Método para verificar se uma geometria está dentro de outra
@@ -166,53 +211,97 @@ export class ArcGISService {
       console.log("Geometrias inválidas para validação de interseção");
       return false;
     }
-    
+
     try {
       // Log para depuração
       console.log("Verificando interseção com sistemas diferentes:", {
         geometria: geometry.spatialReference?.wkid,
-        municipio: municipalityGeometry.spatialReference?.wkid
+        municipio: municipalityGeometry.spatialReference?.wkid,
       });
-      
-      // Tentativa direta de interseção com geometryEngine
-      // Em alguns casos o ArcGIS pode lidar com sistemas diferentes
+
+      // Garantir que projection está carregado
+      if (!coordinateFormatter.isSupported()) {
+        console.warn("Projeção não suportada no ambiente atual!");
+        // Alternativa: usar verificação direta de extent, mas pode ser imprecisa
+        return this.checkExtentsOverlap(geometry, municipalityGeometry);
+      }
+
+      // Definir sistema de referência alvo - Web Mercator (padrão do ArcGIS JS)
+      const targetSR = new SpatialReference({ wkid: 3857 });
+
+      // Clonar as geometrias para não modificar as originais
+      let geomToProject = geometry.clone();
+      let muniToProject = municipalityGeometry.clone();
+
+      // Verificar e carregar projeções necessárias se ainda não estiverem carregadas
       try {
-        const intersects = geometryEngine.intersects(geometry, municipalityGeometry);
-        console.log("Resultado da interseção direta:", intersects);
-        if (intersects) return true;
+        projection.load();
       } catch (e) {
-        console.log("Erro na interseção direta, tentando método alternativo", e);
+        console.warn("Erro ao carregar módulo de projeção:", e);
       }
-      
-      // Abordagem alternativa: verificar vértices do município em coordenadas longlat
-      // Primeiro, verificar se pelo menos um ponto do polígono está dentro do extent do município
-      const municipalityExtent = municipalityGeometry.extent;
-      const geometryExtent = geometry.extent;
-      
-      if (!municipalityExtent || !geometryExtent) {
-        console.log("Extents não disponíveis, assumindo interseção");
-        return true;
+
+      // Reprojetar geometria do desenho se necessário
+      if (geomToProject.spatialReference.wkid !== targetSR.wkid) {
+        try {
+          geomToProject = projection.project(geomToProject, targetSR);
+          console.log("Geometria reprojetada para:", targetSR.wkid);
+        } catch (e) {
+          console.warn("Falha ao reprojetar geometria do desenho:", e);
+        }
       }
-      
-      // Verificar se há sobreposição de extents (retângulos delimitadores)
-      const extentsOverlap = !(
-        geometryExtent.xmax < municipalityExtent.xmin ||
-        geometryExtent.xmin > municipalityExtent.xmax ||
-        geometryExtent.ymax < municipalityExtent.ymin ||
-        geometryExtent.ymin > municipalityExtent.ymax
-      );
-      
-      console.log("Sobreposição de extents:", extentsOverlap);
-      
-      // Se os extents se sobrepõem, considerar como interseção válida
-      return extentsOverlap;
+
+      // Reprojetar geometria do município se necessário
+      if (muniToProject.spatialReference.wkid !== targetSR.wkid) {
+        try {
+          muniToProject = projection.project(muniToProject, targetSR);
+          console.log("Município reprojetado para:", targetSR.wkid);
+        } catch (e) {
+          console.warn("Falha ao reprojetar geometria do município:", e);
+        }
+      }
+
+      // Verificar interseção com geometryEngine após reprojeção
+      try {
+        const intersects = geometryEngine.intersects(
+          geomToProject,
+          muniToProject
+        );
+        console.log("Resultado da interseção após reprojeção:", intersects);
+        return intersects;
+      } catch (e) {
+        console.warn("Erro na verificação de interseção após reprojeção:", e);
+      }
+
+      // Se tudo falhar, usar verificação baseada em extent
+      return this.checkExtentsOverlap(geomToProject, muniToProject);
     } catch (error) {
       console.error("Erro ao validar interseção:", error);
-      
+
       // Temporariamente, para não bloquear o usuário, permitir continuar
       console.log("Assumindo interseção válida devido a erro");
       return true;
     }
+  }
+
+  checkExtentsOverlap(geometry1, geometry2) {
+    const extent1 = geometry1.extent;
+    const extent2 = geometry2.extent;
+
+    if (!extent1 || !extent2) {
+      console.log("Extents não disponíveis, assumindo interseção");
+      return true;
+    }
+
+    // Verificar se há sobreposição de extents (retângulos delimitadores)
+    const extentsOverlap = !(
+      extent1.xmax < extent2.xmin ||
+      extent1.xmin > extent2.xmax ||
+      extent1.ymax < extent2.ymin ||
+      extent1.ymin > extent2.ymax
+    );
+
+    console.log("Sobreposição de extents:", extentsOverlap);
+    return extentsOverlap;
   }
 
   // Método para atualizar o estado do símbolo temporário
@@ -523,58 +612,149 @@ export class ArcGISService {
   }
 
   // Verifica se pelo menos 50% da área da geometria está dentro do município
-  javascript// Método simplificado para validação de área mínima
-validateMinimumAreaInMunicipality(geometry, municipalityGeometry, minimumPercentage = 50) {
-  console.log("Validação de área mínima iniciada");
-  
-  if (!geometry || !municipalityGeometry) {
-    console.log("Geometrias inválidas para validação de área mínima");
-    return false;
-  }
-  
-  try {
-    // Verificar sobreposição de extents
-    const municipalityExtent = municipalityGeometry.extent;
-    const geometryExtent = geometry.extent;
-    
-    if (!municipalityExtent || !geometryExtent) {
-      console.log("Extents não disponíveis, assumindo validação bem-sucedida");
+  validateMinimumAreaInMunicipality(
+    geometry,
+    municipalityGeometry,
+    minimumPercentage = 50
+  ) {
+    console.log("Validação de área mínima iniciada");
+
+    if (!geometry || !municipalityGeometry) {
+      console.log("Geometrias inválidas para validação de área mínima");
+      return false;
+    }
+
+    try {
+      // Definir sistema de referência alvo para o cálculo de áreas
+      const targetSR = new SpatialReference({ wkid: 3857 });
+
+      // Clonar as geometrias para não modificar as originais
+      let geomToProject = geometry.clone();
+      let muniToProject = municipalityGeometry.clone();
+
+      // Verificar e carregar projeções necessárias
+      try {
+        projection.load();
+      } catch (e) {
+        console.warn(
+          "Erro ao carregar módulo de projeção para cálculo de área:",
+          e
+        );
+      }
+
+      // Reprojetar geometria do desenho se necessário
+      if (geomToProject.spatialReference.wkid !== targetSR.wkid) {
+        try {
+          geomToProject = projection.project(geomToProject, targetSR);
+        } catch (e) {
+          console.warn(
+            "Falha ao reprojetar geometria do desenho para cálculo de área:",
+            e
+          );
+        }
+      }
+
+      // Reprojetar geometria do município se necessário
+      if (muniToProject.spatialReference.wkid !== targetSR.wkid) {
+        try {
+          muniToProject = projection.project(muniToProject, targetSR);
+        } catch (e) {
+          console.warn(
+            "Falha ao reprojetar geometria do município para cálculo de área:",
+            e
+          );
+        }
+      }
+
+      // Calcular a interseção das geometrias reprojetadas
+      try {
+        const intersection = geometryEngine.intersect(
+          geomToProject,
+          muniToProject
+        );
+
+        // Se não há interseção, retorna falso
+        if (!intersection) {
+          console.log("Não há interseção entre as geometrias");
+          return false;
+        }
+
+        // Calcular áreas
+        const propertyArea = geometryEngine.geodesicArea(
+          geomToProject,
+          "square-meters"
+        );
+        const intersectionArea = geometryEngine.geodesicArea(
+          intersection,
+          "square-meters"
+        );
+
+        // Calcular porcentagem
+        const percentage = (intersectionArea / propertyArea) * 100;
+
+        console.log(
+          `Porcentagem da área do imóvel dentro do município: ${percentage.toFixed(
+            2
+          )}%`
+        );
+
+        // Verificar se atende ao critério mínimo
+        return percentage >= minimumPercentage;
+      } catch (e) {
+        console.warn("Erro ao calcular interseção ou áreas:", e);
+      }
+
+      // Se o cálculo preciso falhar, usar aproximação por extents
+      return this.approximateAreaOverlap(
+        geomToProject,
+        muniToProject,
+        minimumPercentage
+      );
+    } catch (error) {
+      console.error("Erro ao validar área mínima:", error);
+
+      // Em caso de erro, permitir continuar para não bloquear o usuário
       return true;
     }
-    
+  }
+
+  // Método auxiliar para cálculo aproximado de sobreposição de área
+  approximateAreaOverlap(geometry, municipalityGeometry, minimumPercentage) {
+    const geometryExtent = geometry.extent;
+    const municipalityExtent = municipalityGeometry.extent;
+
+    if (!geometryExtent || !municipalityExtent) {
+      console.log("Extents não disponíveis para aproximação de área");
+      return true; // Permitir continuar
+    }
+
     // Calcular áreas dos extents
-    const municipalityExtentArea = 
-      (municipalityExtent.xmax - municipalityExtent.xmin) * 
-      (municipalityExtent.ymax - municipalityExtent.ymin);
-    
-    const geometryExtentArea = 
-      (geometryExtent.xmax - geometryExtent.xmin) * 
+    const geometryExtentArea =
+      (geometryExtent.xmax - geometryExtent.xmin) *
       (geometryExtent.ymax - geometryExtent.ymin);
-    
+
     // Calcular área de sobreposição dos extents
     const overlapXmin = Math.max(geometryExtent.xmin, municipalityExtent.xmin);
     const overlapXmax = Math.min(geometryExtent.xmax, municipalityExtent.xmax);
     const overlapYmin = Math.max(geometryExtent.ymin, municipalityExtent.ymin);
     const overlapYmax = Math.min(geometryExtent.ymax, municipalityExtent.ymax);
-    
+
     const overlapWidth = Math.max(0, overlapXmax - overlapXmin);
     const overlapHeight = Math.max(0, overlapYmax - overlapYmin);
     const overlapArea = overlapWidth * overlapHeight;
-    
+
     // Calcular porcentagem aproximada da sobreposição
     const overlapPercentage = (overlapArea / geometryExtentArea) * 100;
-    
-    console.log(`Porcentagem aproximada de sobreposição: ${overlapPercentage.toFixed(2)}%`);
-    
+
+    console.log(
+      `Porcentagem aproximada de sobreposição por extents: ${overlapPercentage.toFixed(
+        2
+      )}%`
+    );
+
     // Verificar se atende ao critério mínimo
     return overlapPercentage >= minimumPercentage;
-  } catch (error) {
-    console.error("Erro ao validar área mínima:", error);
-    
-    // Em caso de erro, permitir continuar
-    return true;
   }
-}
 
   // Destruir e liberar recursos
   destroy() {
