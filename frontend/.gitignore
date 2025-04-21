@@ -37,3 +37,4 @@ package-lock.json
 /coverage
 
 .history
+.java-version
