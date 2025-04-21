@@ -6,7 +6,7 @@ module.exports = defineConfig({
   lintOnSave: false,
   
   // Configuração de publicação
-  publicPath: '/car-online/'
+  publicPath: '/car-online/',
   
   // Configuração do servidor de desenvolvimento
   devServer: {
