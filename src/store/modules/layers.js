@@ -1,4 +1,4 @@
-import arcgisService from '../../services/arcgis';
+import arcgisService from "../../services/arcgis";
 
 export default {
   namespaced: true,
@@ -114,6 +114,19 @@ export default {
       commit("SET_SELECTED_LAYER", layerId);
       return true;
     },
+
+    removeAllLayers({ commit, state }) {
+      // Limpar todas as camadas no serviço ArcGIS
+      state.layers.forEach((layer) => {
+        arcgisService.clearLayer(layer.id);
+      });
+
+      // Limpar o estado no Vuex
+      commit("REMOVE_ALL_LAYERS");
+
+      return { success: true };
+    },
+
     async addLayer(
       { commit, dispatch, state, rootState },
       { layerId, geometry }
@@ -206,20 +219,26 @@ export default {
       // Validações específicas por tipo de camada
       switch (layerId) {
         case "propertyArea": {
-          // Validar que a geometria intersecta o município declarado
-          const municipalityName = rootState.property.municipality;
-          // Simulação de validação
-          const intersectsMunicipality = true;
+          // Obter a geometria do município selecionado
+          const municipalityGeometry = rootState.property.municipalityGeometry;
 
-          if (!intersectsMunicipality) {
+          // Validar que a geometria intersecta o município selecionado
+          const municipalityValidation =
+            arcgisService.validateIntersectsWithMunicipality(
+              geometry,
+              municipalityGeometry
+            );
+
+          if (!municipalityValidation) {
             return {
               success: false,
-              message: `A área do imóvel deve intersectar o município ${municipalityName}.`,
+              message: `A área do imóvel deve intersectar o município selecionado.`,
             };
           }
 
           // Garantir que a maior área esteja dentro do estado de São Paulo
-          const isInSaoPaulo = true; // Simulação
+          // Isso é simplificado aqui, pois já estamos mostrando apenas municípios de SP
+          const isInSaoPaulo = true;
 
           if (!isInSaoPaulo) {
             return {

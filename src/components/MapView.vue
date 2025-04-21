@@ -2,7 +2,8 @@
   .map-container
     #mapViewDiv.map-view
     .map-tools(v-if="mapLoaded")
-      layer-selector
+      municipality-selector
+      layer-selector(v-if="municipalitySelected")
       draw-tools(v-if="selectedLayer")
       area-calculator
     .map-alerts
@@ -17,6 +18,7 @@
 <script>
 import { mapState, mapGetters } from 'vuex';
 import arcgisService from '../services/arcgis';
+import MunicipalitySelector from './MunicipalitySelector.vue';
 import LayerSelector from './LayerSelector.vue';
 import DrawTools from './DrawTools.vue';
 import AreaCalculator from './AreaCalculator.vue';
@@ -25,6 +27,7 @@ import ValidationAlert from './ValidationAlert.vue';
 export default {
   name: 'MapView',
   components: {
+    MunicipalitySelector,
     LayerSelector,
     DrawTools,
     AreaCalculator,
@@ -39,6 +42,9 @@ export default {
     ...mapState({
       selectedLayer: state => state.layers.selectedLayer,
       alerts: state => state.validation.alerts
+    }),
+    ...mapGetters({
+      municipalitySelected: 'property/hasMunicipalitySelected'
     })
   },
   async mounted() {
@@ -46,9 +52,6 @@ export default {
       // Inicializar o mapa
       await arcgisService.initializeMap('mapViewDiv');
       this.mapLoaded = true;
-
-      // Inicializar município (simulação)
-      this.$store.commit('property/SET_MUNICIPALITY', 'São Paulo');
     } catch (error) {
       console.error('Erro ao inicializar o mapa:', error);
       this.$store.dispatch('validation/addAlert', {

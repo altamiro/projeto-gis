@@ -48,7 +48,8 @@ export default {
     ...mapState({
       selectedLayer: state => state.layers.selectedLayer,
       layers: state => state.layers.layers,
-      layerTypes: state => state.layers.layerTypes
+      layerTypes: state => state.layers.layerTypes,
+      municipalityGeometry: state => state.property.municipalityGeometry
     }),
     selectedLayerName() {
       const layerType = this.layerTypes.find(lt => lt.id === this.selectedLayer);
@@ -66,6 +67,15 @@ export default {
     }),
     async startDrawing() {
       try {
+        // Verificar se um município foi selecionado
+        if (!this.municipalityGeometry && this.selectedLayer === 'propertyArea') {
+          this.addAlert({
+            type: 'error',
+            message: 'Por favor, selecione um município antes de desenhar a área do imóvel.'
+          });
+          return;
+        }
+
         this.isDrawing = true;
 
         // Determinar o tipo de geometria a ser desenhada (ponto ou polígono)
@@ -95,6 +105,18 @@ export default {
             } else {
               arcgisService.updateTempGraphicSymbol('valid');
             }
+          } else if (this.selectedLayer === 'propertyArea' && tempGeometry && this.municipalityGeometry) {
+            // Validação em tempo real para área do imóvel
+            const intersectsMunicipality = arcgisService.validateIntersectsWithMunicipality(
+              tempGeometry, 
+              this.municipalityGeometry
+            );
+            
+            if (!intersectsMunicipality) {
+              arcgisService.updateTempGraphicSymbol('warning');
+            } else {
+              arcgisService.updateTempGraphicSymbol('valid');
+            }
           } else if (geometryType === 'polygon' && tempGeometry) {
             // Para outras camadas, podemos mostrar a área em tempo real
             const tempArea = arcgisService.calculateArea(tempGeometry);
@@ -116,6 +138,23 @@ export default {
               });
 
               // Cancelar a operação de desenho
+              return null;
+            }
+          }
+          
+          // Para área do imóvel, validar se intersecta o município selecionado
+          if (this.selectedLayer === 'propertyArea' && this.municipalityGeometry) {
+            const intersectsMunicipality = arcgisService.validateIntersectsWithMunicipality(
+              geometry, 
+              this.municipalityGeometry
+            );
+            
+            if (!intersectsMunicipality) {
+              this.addAlert({
+                type: 'error',
+                message: 'A área do imóvel deve intersectar o município selecionado.'
+              });
+              
               return null;
             }
           }

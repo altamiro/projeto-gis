@@ -1,7 +1,10 @@
+import arcgisService from '../../services/arcgis';
+
 export default {
   namespaced: true,
   state: {
     municipality: null,
+    municipalityGeometry: null,
     propertyArea: 0,
     netPropertyArea: 0,
     headquarters: null,
@@ -10,6 +13,9 @@ export default {
   mutations: {
     SET_MUNICIPALITY(state, municipality) {
       state.municipality = municipality;
+    },
+    SET_MUNICIPALITY_GEOMETRY(state, geometry) {
+      state.municipalityGeometry = geometry;
     },
     SET_PROPERTY_AREA(state, area) {
       state.propertyArea = area;
@@ -25,6 +31,18 @@ export default {
     }
   },
   actions: {
+    setMunicipality({ commit, dispatch }, municipality) {
+      commit('SET_MUNICIPALITY', municipality);
+      
+      // Exibir o município no mapa
+      const municipalityGeometry = arcgisService.displayMunicipality(municipality);
+      commit('SET_MUNICIPALITY_GEOMETRY', municipalityGeometry);
+      
+      // Limpar camadas existentes quando trocar de município
+      dispatch('layers/removeAllLayers', null, { root: true });
+      
+      return { success: true };
+    },
     calculateNetPropertyArea({ commit, rootState }) {
       const propertyArea = rootState.layers.layers.find(l => l.id === 'propertyArea')?.area || 0;
       const administrativeServitudes = rootState.layers.layers
@@ -50,5 +68,8 @@ export default {
       commit('SET_ANTHROPIZED_AFTER_2008', anthropizedAfter2008);
       return anthropizedAfter2008;
     }
+  },
+  getters: {
+    hasMunicipalitySelected: state => !!state.municipality
   }
 };

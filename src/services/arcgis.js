@@ -16,10 +16,11 @@ export class ArcGISService {
     this.drawTool = null;
     this.layers = {};
     this.tempSymbolState = "default";
+    this.municipalityLayer = null;
   }
 
   initializeMap(container) {
-    // Criar o mapa base
+    // Criar o mapa base com satellite explicitamente definido
     this.map = new Map({
       basemap: "satellite",
     });
@@ -28,9 +29,23 @@ export class ArcGISService {
     this.view = new MapView({
       container,
       map: this.map,
-      center: [-49.0, -22.0], // Centro aproximado do estado de São Paulo
-      zoom: 12,
+      center: [-47.0, -23.0], // Centro aproximado do estado de São Paulo
+      zoom: 15,
+      // Melhorar a qualidade da visualização
+      constraints: {
+        snapToZoom: false
+      },
+      // Impedir que o basemap seja removido
+      ui: {
+        components: ["zoom", "compass", "attribution"]
+      }
     });
+
+    // Inicializar camada de município
+    this.municipalityLayer = new GraphicsLayer({
+      id: "municipality",
+    });
+    this.map.add(this.municipalityLayer);
 
     // Inicializar camadas gráficas para cada tipo de camada
     const layerTypes = [
@@ -61,9 +76,70 @@ export class ArcGISService {
     return this.view.when();
   }
 
+  // Método para exibir geometria do município
+  displayMunicipality(municipality) {
+    if (!municipality || !municipality.geometry) {
+      console.error('Município sem geometria válida');
+      return;
+    }
+
+    // Limpar camada do município
+    this.municipalityLayer.removeAll();
+
+    try {
+      // Converter a geometria GeoJSON para ArcGIS Polygon
+      const rings = municipality.geometry.coordinates;
+      const polygonGeometry = new Polygon({
+        rings: rings,
+        spatialReference: this.view.spatialReference
+      });
+
+      // Definir símbolo para o município - transparente no centro com contorno visível
+      const municipalitySymbol = {
+        type: "simple-fill",
+        color: [173, 216, 230, 0.1], // Azul muito claro e quase transparente
+        outline: {
+          color: [0, 0, 255, 0.8], // Azul mais escuro para o contorno
+          width: 2
+        }
+      };
+
+      // Criar gráfico e adicionar à camada
+      const municipalityGraphic = new Graphic({
+        geometry: polygonGeometry,
+        symbol: municipalitySymbol,
+        attributes: {
+          id: municipality.id,
+          name: municipality.name
+        }
+      });
+
+      this.municipalityLayer.add(municipalityGraphic);
+
+      // Certificar que o mapa base está definido como satellite
+      if (this.map.basemap.id !== "satellite") {
+        this.map.basemap = "satellite";
+      }
+
+      // Centralizar e dar zoom na geometria do município
+      this.view.goTo(polygonGeometry.extent.expand(1.2));
+
+      return polygonGeometry;
+    } catch (error) {
+      console.error('Erro ao exibir município:', error);
+      return null;
+    }
+  }
+
   // Método para verificar se uma geometria está dentro de outra
   isWithin(innerGeometry, outerGeometry) {
     return geometryEngine.within(innerGeometry, outerGeometry);
+  }
+
+  // Método para verificar interseção com município
+  validateIntersectsWithMunicipality(geometry, municipalityGeometry) {
+    if (!geometry || !municipalityGeometry) return false;
+    return geometryEngine.intersects(geometry, municipalityGeometry);
   }
 
   // Método para atualizar o estado do símbolo temporário
