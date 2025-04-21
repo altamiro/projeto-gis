@@ -71,8 +71,19 @@ export default {
         // Determinar o tipo de geometria a ser desenhada (ponto ou polígono)
         const geometryType = this.selectedLayer === 'headquarters' ? 'point' : 'polygon';
 
-        // Ativar a ferramenta de desenho e aguardar a conclusão
-        const geometry = await arcgisService.activateDrawTool(geometryType);
+        // Adicionar callback para atualização em tempo real
+        const onUpdateGeometry = (tempGeometry) => {
+          // Aqui podemos adicionar lógica para mostrar informações em tempo real,
+          // como a área aproximada durante o desenho
+          if (geometryType === 'polygon' && tempGeometry) {
+            const tempArea = arcgisService.calculateArea(tempGeometry);
+            // Se desejar, pode atualizar o estado para mostrar a área em tempo real
+            // this.tempCalculatedArea = tempArea.toFixed(4);
+          }
+        };
+
+        // Ativar a ferramenta de desenho com callback de atualização
+        const geometry = await arcgisService.activateDrawTool(geometryType, onUpdateGeometry);
 
         // Adicionar a camada com a geometria desenhada
         const result = await this.addLayer({

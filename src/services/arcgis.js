@@ -1,13 +1,13 @@
-import Map from '@arcgis/core/Map';
-import MapView from '@arcgis/core/views/MapView';
-import GraphicsLayer from '@arcgis/core/layers/GraphicsLayer';
-import Graphic from '@arcgis/core/Graphic';
-import Polygon from '@arcgis/core/geometry/Polygon';
-import Point from '@arcgis/core/geometry/Point';
-import * as geometryEngine from '@arcgis/core/geometry/geometryEngine';
-import * as intersectionOperator from '@arcgis/core/geometry/operators/intersectionOperator';
-import Draw from '@arcgis/core/views/draw/Draw';
-import colors from '../utils/colors';
+import Map from "@arcgis/core/Map";
+import MapView from "@arcgis/core/views/MapView";
+import GraphicsLayer from "@arcgis/core/layers/GraphicsLayer";
+import Graphic from "@arcgis/core/Graphic";
+import Polygon from "@arcgis/core/geometry/Polygon";
+import Point from "@arcgis/core/geometry/Point";
+import * as geometryEngine from "@arcgis/core/geometry/geometryEngine";
+import * as intersectionOperator from "@arcgis/core/geometry/operators/intersectionOperator";
+import Draw from "@arcgis/core/views/draw/Draw";
+import colors from "../utils/colors";
 
 export class ArcGISService {
   constructor() {
@@ -20,7 +20,7 @@ export class ArcGISService {
   initializeMap(container) {
     // Criar o mapa base
     this.map = new Map({
-      basemap: 'satellite'
+      basemap: "satellite",
     });
 
     // Criar a vista do mapa
@@ -28,24 +28,25 @@ export class ArcGISService {
       container,
       map: this.map,
       center: [-49.0, -22.0], // Centro aproximado do estado de São Paulo
-      zoom: 12
+      zoom: 12,
     });
 
     // Inicializar camadas gráficas para cada tipo de camada
     const layerTypes = [
-      'propertyArea',
-      'headquarters',
-      'consolidatedArea',
-      'nativeVegetation',
-      'fallow',
-      'administrativeServitude',
-      'hydrography',
-      'anthropizedAfter2008'
+      "propertyArea",
+      "headquarters",
+      "consolidatedArea",
+      "nativeVegetation",
+      "fallow",
+      "administrativeServitude",
+      "hydrography",
+      "anthropizedAfter2008",
+      "temp", // Adicionar camada temporária para desenho em tempo real
     ];
 
-    layerTypes.forEach(type => {
+    layerTypes.forEach((type) => {
       const layer = new GraphicsLayer({
-        id: type
+        id: type,
       });
       this.map.add(layer);
       this.layers[type] = layer;
@@ -53,46 +54,131 @@ export class ArcGISService {
 
     // Inicializar a ferramenta de desenho
     this.drawTool = new Draw({
-      view: this.view
+      view: this.view,
     });
 
     return this.view.when();
   }
 
-  activateDrawTool(type = 'polygon') {
+  activateDrawTool(type = "polygon", onUpdate = null) {
     // Limpa qualquer desenho ativo
     this.drawTool.reset();
 
-    return new Promise(resolve => {
-      // Ativar desenho de polígono
+    return new Promise((resolve) => {
+      // Ativar desenho de polígono ou ponto
       const action = this.drawTool.create(type);
 
-      // Eventos de desenho
-      action.on(['vertex-add', 'vertex-remove', 'cursor-update', 'redo', 'undo'], (event) => {
-        // Atualização em tempo real durante o desenho
-      });
+      // Criar uma camada temporária para exibir o desenho em andamento
+      const tempGraphicLayer =
+        this.layers["temp"] || new GraphicsLayer({ id: "temp" });
+      if (!this.layers["temp"]) {
+        this.map.add(tempGraphicLayer);
+        this.layers["temp"] = tempGraphicLayer;
+      } else {
+        tempGraphicLayer.removeAll();
+      }
 
-      action.on('draw-complete', (event) => {
-        // Ao completar o desenho
-        const geometry = (type === 'point') 
-          ? new Point({
-              x: event.coordinates[0],
-              y: event.coordinates[1],
-              spatialReference: this.view.spatialReference
-            })
-          : new Polygon({
-              rings: event.vertices,
-              spatialReference: this.view.spatialReference
+      // Eventos de desenho para atualização em tempo real
+      action.on(
+        ["vertex-add", "vertex-remove", "cursor-update", "redo", "undo"],
+        (event) => {
+          // Limpar gráficos temporários anteriores
+          tempGraphicLayer.removeAll();
+
+          // Criar uma geometria temporária com os vértices atuais
+          let tempGeometry;
+
+          if (type === "point") {
+            if (event.coordinates && event.coordinates.length > 0) {
+              tempGeometry = new Point({
+                x: event.coordinates[0],
+                y: event.coordinates[1],
+                spatialReference: this.view.spatialReference,
+              });
+            }
+          } else {
+            // Polígono
+            if (event.vertices && event.vertices.length > 0) {
+              tempGeometry = new Polygon({
+                rings: [event.vertices],
+                spatialReference: this.view.spatialReference,
+              });
+            }
+          }
+
+          // Se temos uma geometria temporária, exibi-la com símbolo semi-transparente
+          if (tempGeometry) {
+            // Definir símbolo para visualização temporária
+            const tempSymbol = this.getTempSymbol(type);
+
+            // Adicionar gráfico temporário
+            const tempGraphic = new Graphic({
+              geometry: tempGeometry,
+              symbol: tempSymbol,
             });
+
+            tempGraphicLayer.add(tempGraphic);
+
+            // Chamar callback de atualização se fornecido
+            if (onUpdate && typeof onUpdate === "function") {
+              onUpdate(tempGeometry);
+            }
+          }
+        }
+      );
+
+      action.on("draw-complete", (event) => {
+        // Limpar a camada temporária
+        tempGraphicLayer.removeAll();
+
+        // Ao completar o desenho, criar a geometria final
+        const geometry =
+          type === "point"
+            ? new Point({
+                x: event.coordinates[0],
+                y: event.coordinates[1],
+                spatialReference: this.view.spatialReference,
+              })
+            : new Polygon({
+                rings: [event.vertices],
+                spatialReference: this.view.spatialReference,
+              });
 
         resolve(geometry);
       });
     });
   }
 
+  // Adicionar método para obter símbolos temporários durante o desenho
+  getTempSymbol(type) {
+    if (type === "point") {
+      return {
+        type: "simple-marker",
+        style: "circle",
+        color: [255, 0, 0, 0.5],
+        size: "12px",
+        outline: {
+          color: [255, 0, 0, 0.8],
+          width: 1,
+        },
+      };
+    } else {
+      // Polígono
+      return {
+        type: "simple-fill",
+        color: [0, 0, 255, 0.2],
+        outline: {
+          color: [0, 0, 255, 0.7],
+          width: 2,
+          style: "dash",
+        },
+      };
+    }
+  }
+
   addGraphic(layerId, geometry, symbol, attributes = {}) {
     const layer = this.layers[layerId];
-    
+
     if (!layer) {
       console.error(`Camada ${layerId} não encontrada.`);
       return null;
@@ -109,8 +195,8 @@ export class ArcGISService {
       attributes: {
         id: `${layerId}-${Date.now()}`,
         type: layerId,
-        ...attributes
-      }
+        ...attributes,
+      },
     });
 
     layer.add(graphic);
@@ -126,7 +212,7 @@ export class ArcGISService {
 
   calculateArea(geometry) {
     // Calcular área em metros quadrados e converter para hectares
-    const area = geometryEngine.geodesicArea(geometry, 'square-meters');
+    const area = geometryEngine.geodesicArea(geometry, "square-meters");
     return area / 10000; // Converter para hectares
   }
 
@@ -146,71 +232,71 @@ export class ArcGISService {
     // Definir símbolos padrão para cada tipo de camada
     const symbols = {
       propertyArea: {
-        type: 'simple-fill',
+        type: "simple-fill",
         color: colors.layers.propertyArea.fill,
         outline: {
           color: colors.layers.propertyArea.outline,
-          width: 2
-        }
+          width: 2,
+        },
       },
       headquarters: {
-        type: 'simple-marker',
-        style: 'square',
+        type: "simple-marker",
+        style: "square",
         color: colors.layers.headquarters.fill,
-        size: '12px',
+        size: "12px",
         outline: {
           color: colors.layers.headquarters.outline,
-          width: 1
-        }
+          width: 1,
+        },
       },
       consolidatedArea: {
-        type: 'simple-fill',
+        type: "simple-fill",
         color: colors.layers.consolidatedArea.fill,
         outline: {
           color: colors.layers.consolidatedArea.outline,
-          width: 1
-        }
+          width: 1,
+        },
       },
       nativeVegetation: {
-        type: 'simple-fill',
+        type: "simple-fill",
         color: colors.layers.nativeVegetation.fill,
         outline: {
           color: colors.layers.nativeVegetation.outline,
-          width: 1
-        }
+          width: 1,
+        },
       },
       fallow: {
-        type: 'simple-fill',
+        type: "simple-fill",
         color: colors.layers.fallow.fill,
         outline: {
           color: colors.layers.fallow.outline,
-          width: 1
-        }
+          width: 1,
+        },
       },
       administrativeServitude: {
-        type: 'simple-fill',
+        type: "simple-fill",
         color: colors.layers.administrativeServitude.fill,
         outline: {
           color: colors.layers.administrativeServitude.outline,
-          width: 1
-        }
+          width: 1,
+        },
       },
       hydrography: {
-        type: 'simple-fill',
+        type: "simple-fill",
         color: colors.layers.hydrography.fill,
         outline: {
           color: colors.layers.hydrography.outline,
-          width: 1
-        }
+          width: 1,
+        },
       },
       anthropizedAfter2008: {
-        type: 'simple-fill',
+        type: "simple-fill",
         color: colors.layers.anthropizedAfter2008.fill,
         outline: {
           color: colors.layers.anthropizedAfter2008.outline,
-          width: 1
-        }
-      }
+          width: 1,
+        },
+      },
     };
 
     return symbols[layerId] || symbols.propertyArea;
