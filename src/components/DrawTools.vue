@@ -71,19 +71,66 @@ export default {
         // Determinar o tipo de geometria a ser desenhada (ponto ou polígono)
         const geometryType = this.selectedLayer === 'headquarters' ? 'point' : 'polygon';
 
-        // Adicionar callback para atualização em tempo real
+        // Se for sede do imóvel, precisamos recuperar a geometria da área do imóvel
+        let propertyGeometry = null;
+        if (this.selectedLayer === 'headquarters') {
+          const propertyLayer = this.layers.find(l => l.id === 'propertyArea');
+          if (!propertyLayer) {
+            throw new Error('A área do imóvel precisa ser definida primeiro.');
+          }
+          propertyGeometry = propertyLayer.geometry;
+        }
+
+        // Adicionar callback para validação em tempo real para a sede
         const onUpdateGeometry = (tempGeometry) => {
-          // Aqui podemos adicionar lógica para mostrar informações em tempo real,
-          // como a área aproximada durante o desenho
-          if (geometryType === 'polygon' && tempGeometry) {
+          // Se estiver desenhando a sede, verificar se está dentro da área do imóvel
+          if (this.selectedLayer === 'headquarters' && tempGeometry && propertyGeometry) {
+            // Verificar se o ponto está dentro da área do imóvel
+            const isInside = arcgisService.isWithin(tempGeometry, propertyGeometry);
+
+            // Mostrar feedback visual temporário (cor diferente) se estiver fora
+            if (!isInside) {
+              // Atualizar a cor do ponto temporário para indicar que está inválido
+              arcgisService.updateTempGraphicSymbol('warning');
+            } else {
+              arcgisService.updateTempGraphicSymbol('valid');
+            }
+          } else if (geometryType === 'polygon' && tempGeometry) {
+            // Para outras camadas, podemos mostrar a área em tempo real
             const tempArea = arcgisService.calculateArea(tempGeometry);
             // Se desejar, pode atualizar o estado para mostrar a área em tempo real
-            // this.tempCalculatedArea = tempArea.toFixed(4);
           }
         };
 
-        // Ativar a ferramenta de desenho com callback de atualização
-        const geometry = await arcgisService.activateDrawTool(geometryType, onUpdateGeometry);
+        // Evento de conclusão do desenho personalizado para a sede
+        const onDrawComplete = (geometry) => {
+          // Para sede do imóvel, validar se está dentro da área do imóvel
+          if (this.selectedLayer === 'headquarters' && propertyGeometry) {
+            const isInside = arcgisService.isWithin(geometry, propertyGeometry);
+
+            if (!isInside) {
+              // Mostrar mensagem de erro
+              this.addAlert({
+                type: 'error',
+                message: 'A sede do imóvel deve estar dentro da área do imóvel.'
+              });
+
+              // Cancelar a operação de desenho
+              return null;
+            }
+          }
+
+          // Retornar a geometria válida
+          return geometry;
+        };
+
+        // Ativar a ferramenta de desenho com callbacks
+        const geometry = await arcgisService.activateDrawTool(geometryType, onUpdateGeometry, onDrawComplete);
+
+        // Se geometry for null, significa que foi cancelado por validação
+        if (!geometry) {
+          return;
+        }
 
         // Adicionar a camada com a geometria desenhada
         const result = await this.addLayer({
@@ -112,6 +159,7 @@ export default {
         this.isDrawing = false;
       }
     },
+
     confirmDeleteLayer() {
       if (this.selectedLayer === 'propertyArea') {
         this.deleteConfirmationMessage = 'ATENÇÃO: Excluir a Área do Imóvel irá remover TODAS as camadas. Esta ação é irreversível. Deseja continuar?';

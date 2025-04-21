@@ -15,6 +15,7 @@ export class ArcGISService {
     this.view = null;
     this.drawTool = null;
     this.layers = {};
+    this.tempSymbolState = "default";
   }
 
   initializeMap(container) {
@@ -60,7 +61,18 @@ export class ArcGISService {
     return this.view.when();
   }
 
-  activateDrawTool(type = "polygon", onUpdate = null) {
+  // Método para verificar se uma geometria está dentro de outra
+  isWithin(innerGeometry, outerGeometry) {
+    return geometryEngine.within(innerGeometry, outerGeometry);
+  }
+
+  // Método para atualizar o estado do símbolo temporário
+  updateTempGraphicSymbol(state) {
+    this.tempSymbolState = state;
+  }
+
+  // Versão atualizada do método activateDrawTool
+  activateDrawTool(type = "polygon", onUpdate = null, onDrawComplete = null) {
     // Limpa qualquer desenho ativo
     this.drawTool.reset();
 
@@ -106,10 +118,10 @@ export class ArcGISService {
             }
           }
 
-          // Se temos uma geometria temporária, exibi-la com símbolo semi-transparente
+          // Se temos uma geometria temporária, exibi-la com símbolo
           if (tempGeometry) {
             // Definir símbolo para visualização temporária
-            const tempSymbol = this.getTempSymbol(type);
+            const tempSymbol = this.getTempSymbol(type, this.tempSymbolState);
 
             // Adicionar gráfico temporário
             const tempGraphic = new Graphic({
@@ -144,21 +156,44 @@ export class ArcGISService {
                 spatialReference: this.view.spatialReference,
               });
 
-        resolve(geometry);
+        // Se tiver callback de conclusão personalizado, usá-lo para validação
+        if (onDrawComplete && typeof onDrawComplete === "function") {
+          const validatedGeometry = onDrawComplete(geometry);
+          resolve(validatedGeometry);
+        } else {
+          resolve(geometry);
+        }
       });
     });
   }
 
-  // Adicionar método para obter símbolos temporários durante o desenho
-  getTempSymbol(type) {
+  // Método atualizado para suportar diferentes estados de símbolos
+  getTempSymbol(type, state = "default") {
     if (type === "point") {
+      // Cores diferentes baseadas no estado
+      let color, outlineColor;
+
+      switch (state) {
+        case "warning":
+          color = [255, 0, 0, 0.7]; // Vermelho mais intenso
+          outlineColor = [255, 0, 0, 1];
+          break;
+        case "valid":
+          color = [0, 255, 0, 0.7]; // Verde
+          outlineColor = [0, 255, 0, 1];
+          break;
+        default:
+          color = [255, 0, 0, 0.5]; // Vermelho padrão
+          outlineColor = [255, 0, 0, 0.8];
+      }
+
       return {
         type: "simple-marker",
         style: "circle",
-        color: [255, 0, 0, 0.5],
+        color: color,
         size: "12px",
         outline: {
-          color: [255, 0, 0, 0.8],
+          color: outlineColor,
           width: 1,
         },
       };
