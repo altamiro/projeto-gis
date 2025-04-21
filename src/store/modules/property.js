@@ -32,16 +32,48 @@ export default {
   },
   actions: {
     setMunicipality({ commit, dispatch }, municipality) {
-      commit('SET_MUNICIPALITY', municipality);
-      
-      // Exibir o município no mapa
-      const municipalityGeometry = arcgisService.displayMunicipality(municipality);
-      commit('SET_MUNICIPALITY_GEOMETRY', municipalityGeometry);
-      
-      // Limpar camadas existentes quando trocar de município
-      dispatch('layers/removeAllLayers', null, { root: true });
-      
-      return { success: true };
+      try {
+        // Primeiro, definir o município no estado
+        commit('SET_MUNICIPALITY', municipality);
+        
+        // Exibir o município no mapa e obter a geometria processada
+        const municipalityGeometry = arcgisService.displayMunicipality(municipality);
+        
+        // Verificar se a geometria foi processada corretamente
+        if (!municipalityGeometry) {
+          // Adicionar alerta de erro se a exibição falhou
+          dispatch('validation/addAlert', {
+            type: 'error',
+            message: `Erro ao exibir a geometria do município "${municipality.name}".`
+          }, { root: true });
+          
+          return { success: false };
+        }
+        
+        // Armazenar a geometria no estado
+        commit('SET_MUNICIPALITY_GEOMETRY', municipalityGeometry);
+        
+        // Limpar camadas existentes quando trocar de município
+        dispatch('layers/removeAllLayers', null, { root: true });
+        
+        // Adicionar alerta informativo
+        dispatch('validation/addAlert', {
+          type: 'success',
+          message: `Município "${municipality.name}" selecionado com sucesso.`
+        }, { root: true });
+        
+        return { success: true };
+      } catch (error) {
+        console.error('Erro ao definir município:', error);
+        
+        // Adicionar alerta de erro
+        dispatch('validation/addAlert', {
+          type: 'error',
+          message: `Erro ao selecionar o município: ${error.message || 'Erro desconhecido'}`
+        }, { root: true });
+        
+        return { success: false };
+      }
     },
     calculateNetPropertyArea({ commit, rootState }) {
       const propertyArea = rootState.layers.layers.find(l => l.id === 'propertyArea')?.area || 0;

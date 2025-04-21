@@ -1,3 +1,4 @@
+// src/services/arcgis.js - Versão atualizada
 import Map from "@arcgis/core/Map";
 import MapView from "@arcgis/core/views/MapView";
 import GraphicsLayer from "@arcgis/core/layers/GraphicsLayer";
@@ -22,7 +23,7 @@ export class ArcGISService {
   initializeMap(container) {
     // Criar o mapa base com satellite explicitamente definido
     this.map = new Map({
-      basemap: "satellite",
+      basemap: "satellite"
     });
 
     // Criar a vista do mapa
@@ -30,14 +31,21 @@ export class ArcGISService {
       container,
       map: this.map,
       center: [-47.0, -23.0], // Centro aproximado do estado de São Paulo
-      zoom: 15,
+      zoom: 8, // Zoom inicial mais amplo para visualizar o estado de SP
       // Melhorar a qualidade da visualização
       constraints: {
-        snapToZoom: false
+        snapToZoom: false,
+        // Limites de zoom para melhorar desempenho e usabilidade
+        minZoom: 6,
+        maxZoom: 20
       },
-      // Impedir que o basemap seja removido
+      // UI básica para interagir com o mapa
       ui: {
         components: ["zoom", "compass", "attribution"]
+      },
+      // Melhorar performance da navegação
+      navigation: {
+        browserTouchPanEnabled: true
       }
     });
 
@@ -76,11 +84,11 @@ export class ArcGISService {
     return this.view.when();
   }
 
-  // Método para exibir geometria do município
+  // Método atualizado para exibir geometria do município
   displayMunicipality(municipality) {
     if (!municipality || !municipality.geometry) {
       console.error('Município sem geometria válida');
-      return;
+      return null;
     }
 
     // Limpar camada do município
@@ -89,9 +97,11 @@ export class ArcGISService {
     try {
       // Converter a geometria GeoJSON para ArcGIS Polygon
       const rings = municipality.geometry.coordinates;
+      
+      // Importante: usar o sistema de coordenadas WGS84 (4326) para dados GeoJSON
       const polygonGeometry = new Polygon({
         rings: rings,
-        spatialReference: this.view.spatialReference
+        spatialReference: { wkid: 4326 } // WGS84 (padrão para GeoJSON)
       });
 
       // Definir símbolo para o município - transparente no centro com contorno visível
@@ -116,13 +126,22 @@ export class ArcGISService {
 
       this.municipalityLayer.add(municipalityGraphic);
 
-      // Certificar que o mapa base está definido como satellite
+      // Garantir que o mapa base está definido como satellite
       if (this.map.basemap.id !== "satellite") {
         this.map.basemap = "satellite";
       }
 
-      // Centralizar e dar zoom na geometria do município
-      this.view.goTo(polygonGeometry.extent.expand(1.2));
+      // Centralizar e dar zoom na geometria do município com animação suave
+      this.view.goTo(
+        {
+          target: polygonGeometry,
+          scale: 50000 // Escala apropriada para visualizar municípios
+        }, 
+        {
+          duration: 1000,
+          easing: "ease-in-out"
+        }
+      );
 
       return polygonGeometry;
     } catch (error) {

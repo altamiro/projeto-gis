@@ -7,6 +7,7 @@
         v-model="selectedMunicipality"
         placeholder="Selecione um município"
         @change="handleMunicipalityChange"
+        filterable
       )
         el-option(
           v-for="municipality in municipalities"
@@ -28,7 +29,7 @@ export default {
         id: feature.properties.id,
         name: feature.properties.name,
         geometry: feature.geometry
-      }))
+      })).sort((a, b) => a.name.localeCompare(b.name))
     };
   },
   computed: {
