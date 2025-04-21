@@ -7,6 +7,7 @@ import Polygon from "@arcgis/core/geometry/Polygon";
 import Point from "@arcgis/core/geometry/Point";
 import * as geometryEngine from "@arcgis/core/geometry/geometryEngine";
 import * as intersectionOperator from "@arcgis/core/geometry/operators/intersectionOperator";
+import * as containsOperator from "@arcgis/core/geometry/operators/containsOperator";
 import Draw from "@arcgis/core/views/draw/Draw";
 import colors from "../utils/colors";
 
@@ -352,6 +353,10 @@ export class ArcGISService {
 
   intersection(geometry1, geometry2) {
     return intersectionOperator.execute(geometry1, geometry2);
+  }
+
+  contains(geometry1, geometry2) {
+    return containsOperator.execute(geometry1, geometry2);
   }
 
   difference(geometry1, geometry2) {
