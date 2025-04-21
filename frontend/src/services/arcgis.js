@@ -609,7 +609,7 @@ export class ArcGISService {
   }
 
   centroid(geometry) {
-    return centroidOperator.execute(polygon);
+    return centroidOperator.execute(geometry);
   }
 
   getDefaultSymbol(layerId) {
