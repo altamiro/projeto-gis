@@ -1,0 +1,66 @@
+// Variáveis de cores principais
+$primary-color: #409EFF;
+$success-color: #67C23A;
+$warning-color: #E6A23C;
+$danger-color: #F56C6C;
+$info-color: #909399;
+
+// Cores específicas para camadas
+$property-area-color: rgba(255, 255, 255, 0.2);
+$property-area-border: #000000;
+
+$headquarters-color: #FF0000;
+$headquarters-border: #000000;
+
+$consolidated-area-color: rgba(245, 166, 35, 0.6);
+$consolidated-area-border: rgb(245, 166, 35);
+
+$native-vegetation-color: rgba(60, 179, 113, 0.6);
+$native-vegetation-border: rgb(60, 179, 113);
+
+$fallow-color: rgba(255, 255, 0, 0.6);
+$fallow-border: rgb(255, 255, 0);
+
+$administrative-servitude-color: rgba(128, 0, 128, 0.6);
+$administrative-servitude-border: rgb(128, 0, 128);
+
+$hydrography-color: rgba(0, 191, 255, 0.6);
+$hydrography-border: rgb(0, 191, 255);
+
+$anthropized-after-2008-color: rgba(255, 0, 0, 0.6);
+$anthropized-after-2008-border: rgb(255, 0, 0);
+
+// Tamanhos e espaçamentos
+$header-height: 60px;
+$sidebar-width: 300px;
+$card-padding: 20px;
+$border-radius: 4px;
+
+// Breakpoints responsivos
+$breakpoint-xs: 576px;
+$breakpoint-sm: 768px;
+$breakpoint-md: 992px;
+$breakpoint-lg: 1200px;
+$breakpoint-xl: 1600px;
+
+// Sombras
+$box-shadow-light: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+$box-shadow-medium: 0 4px 16px 0 rgba(0, 0, 0, 0.2);
+$box-shadow-dark: 0 6px 20px 0 rgba(0, 0, 0, 0.3);
+
+// Fontes
+$font-family-base: 'Avenir', Helvetica, Arial, sans-serif;
+$font-size-base: 14px;
+$font-weight-light: 300;
+$font-weight-normal: 400;
+$font-weight-bold: 700;
+
+// Transições
+$transition-base: all 0.3s ease-in-out;
+$transition-fast: all 0.15s ease-in-out;
+$transition-slow: all 0.5s ease-in-out;
+
+// Z-indexes
+$z-index-dropdown: 1000;
+$z-index-modal: 1050;
+$z-index-tooltip: 1100;

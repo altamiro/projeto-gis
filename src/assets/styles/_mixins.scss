@@ -1,0 +1,85 @@
+@use 'sass:color';
+
+// Mixin para truncar texto com elipses
+@mixin text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Mixin para quebra de texto
+@mixin word-wrap {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
+}
+
+// Mixin para flexbox
+@mixin flex($direction: row, $wrap: nowrap, $justify: flex-start, $align: stretch) {
+  display: flex;
+  flex-direction: $direction;
+  flex-wrap: $wrap;
+  justify-content: $justify;
+  align-items: $align;
+}
+
+// Mixin para grid
+@mixin grid($columns: 1fr, $rows: auto, $gap: 1rem) {
+  display: grid;
+  grid-template-columns: $columns;
+  grid-template-rows: $rows;
+  gap: $gap;
+}
+
+// Mixin para media queries
+@mixin respond-to($breakpoint) {
+  @if $breakpoint == xs {
+    @media (max-width: 576px) { @content; }
+  } @else if $breakpoint == sm {
+    @media (max-width: 768px) { @content; }
+  } @else if $breakpoint == md {
+    @media (max-width: 992px) { @content; }
+  } @else if $breakpoint == lg {
+    @media (max-width: 1200px) { @content; }
+  } @else if $breakpoint == xl {
+    @media (max-width: 1600px) { @content; }
+  }
+}
+
+// Mixin para sombras
+@mixin box-shadow($level: 1) {
+  @if $level == 1 {
+    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  } @else if $level == 2 {
+    box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.2);
+  } @else if $level == 3 {
+    box-shadow: 0 6px 20px 0 rgba(0, 0, 0, 0.3);
+  }
+}
+
+// Mixin para botões
+@mixin button-style($background: #409EFF, $color: white, $hover-darken: 10%) {
+  background-color: $background;
+  color: $color;
+  border: none;
+  border-radius: 4px;
+  padding: 0.5rem 1rem;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  
+  &:hover {
+    background-color: color.scale($background, $lightness: -10%);
+  }
+  
+  &:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba($background, 0.5);
+  }
+  
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
