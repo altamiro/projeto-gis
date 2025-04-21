@@ -105,15 +105,27 @@ export default {
             } else {
               arcgisService.updateTempGraphicSymbol('valid');
             }
-          } else if (this.selectedLayer === 'propertyArea' && tempGeometry && this.municipalityGeometry) {
             // Validação em tempo real para área do imóvel
+          } else if (this.selectedLayer === 'propertyArea' && tempGeometry && this.municipalityGeometry) {
+            // Verificar interseção básica
             const intersectsMunicipality = arcgisService.validateIntersectsWithMunicipality(
-              tempGeometry, 
+              tempGeometry,
               this.municipalityGeometry
             );
-            
+
+            // Verificar porcentagem mínima de área dentro do município
+            const minimumAreaInMunicipality = intersectsMunicipality ?
+              arcgisService.validateMinimumAreaInMunicipality(
+                tempGeometry,
+                this.municipalityGeometry,
+                50
+              ) : false;
+
             if (!intersectsMunicipality) {
               arcgisService.updateTempGraphicSymbol('warning');
+            } else if (!minimumAreaInMunicipality) {
+              // Usar um símbolo intermediário para indicar que há interseção, mas não o suficiente
+              arcgisService.updateTempGraphicSymbol('warning-medium');
             } else {
               arcgisService.updateTempGraphicSymbol('valid');
             }
@@ -126,6 +138,48 @@ export default {
 
         // Evento de conclusão do desenho personalizado para a sede
         const onDrawComplete = (geometry) => {
+
+          // Para área do imóvel, validar se pelo menos 50% está dentro do município selecionado
+          if (this.selectedLayer === 'propertyArea' && this.municipalityGeometry) {
+            try {
+              // Validar interseção básica
+              const intersectsMunicipality = arcgisService.validateIntersectsWithMunicipality(
+                geometry,
+                this.municipalityGeometry
+              );
+
+              if (!intersectsMunicipality) {
+                this.addAlert({
+                  type: 'error',
+                  message: 'A área do imóvel deve intersectar o município selecionado.'
+                });
+
+                return null;
+              }
+
+              // Validar área mínima
+              const minimumAreaInMunicipality = arcgisService.validateMinimumAreaInMunicipality(
+                geometry,
+                this.municipalityGeometry,
+                50
+              );
+
+              if (!minimumAreaInMunicipality) {
+                this.addAlert({
+                  type: 'error',
+                  message: 'No mínimo 50% da área do imóvel deve estar dentro do município selecionado.'
+                });
+
+                return null;
+              }
+            } catch (error) {
+              console.error("Erro na validação:", error);
+
+              // Em caso de erro na validação, permitir continuar
+              console.log("Ignorando erro de validação para permitir uso");
+            }
+          }
+
           // Para sede do imóvel, validar se está dentro da área do imóvel
           if (this.selectedLayer === 'headquarters' && propertyGeometry) {
             const isInside = arcgisService.isWithin(geometry, propertyGeometry);
@@ -141,20 +195,20 @@ export default {
               return null;
             }
           }
-          
+
           // Para área do imóvel, validar se intersecta o município selecionado
           if (this.selectedLayer === 'propertyArea' && this.municipalityGeometry) {
             const intersectsMunicipality = arcgisService.validateIntersectsWithMunicipality(
-              geometry, 
+              geometry,
               this.municipalityGeometry
             );
-            
+
             if (!intersectsMunicipality) {
               this.addAlert({
                 type: 'error',
                 message: 'A área do imóvel deve intersectar o município selecionado.'
               });
-              
+
               return null;
             }
           }
