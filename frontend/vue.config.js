@@ -10,7 +10,7 @@ module.exports = defineConfig({
   
   // Configuração do servidor de desenvolvimento
   devServer: {
-    port: 8080,
+    port: 9292,
     open: false,
     // Configurações atualizadas para webpack 5
     client: {
