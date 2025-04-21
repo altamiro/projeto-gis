@@ -1,4 +1,3 @@
-// src/utils/colors.js
 // Versão JavaScript das cores definidas em SCSS
 // Usado principalmente pelo ArcGIS SDK que não tem acesso direto às variáveis SCSS
 
