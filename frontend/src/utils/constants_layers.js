@@ -1,7 +1,7 @@
 /**
  * Constantes para os grupos das camadas
  */
-export const GROUP_LAYER = [
+export const BASE_GROUP_LAYER = [
   {
     id: "imovel",
     order: 1,
@@ -754,6 +754,29 @@ export const LAYER_TYPES = [
     required: false,
   },
 ];
+
+// preencha dinamicamente as opções para cada grupo
+export const GROUP_LAYER = BASE_GROUP_LAYER.map(group => {
+  // Filtrar LAYER_TYPES para obter apenas itens que pertencem a este grupo
+  const groupOptions = LAYER_TYPES.filter(layer => layer.grupo === group.id)
+    // Classificar pela propriedade de order para manter a ordem pretendida
+    .sort((a, b) => a.order - b.order)
+    // Mapeie para o formato que você deseja para opções
+    .map(layer => ({
+      id: layer.id,
+      name: layer.name,
+      tema_id: layer.tema_id,
+      tipo_tema: layer.tipo_tema,
+      editable: layer.editable,
+      required: layer.required
+    }));
+
+  // Retornar o grupo com opções preenchidas
+  return {
+    ...group,
+    options: groupOptions
+  };
+});
 
 export default {
   LAYER_TYPES,
