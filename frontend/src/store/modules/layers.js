@@ -1,5 +1,5 @@
 import arcgisService from "../../services/arcgis";
-import { LAYER_TYPES } from "../../utils/constants_layers";
+import { GROUP_LAYER, LAYER_TYPES } from "../../utils/constants_layers";
 
 export default {
   namespaced: true,
@@ -8,6 +8,7 @@ export default {
     selectedLayer: null,
     drawingMode: false,
     layerTypes: LAYER_TYPES,
+    baseGroupLayers: GROUP_LAYER,
   },
   mutations: {
     ADD_LAYER(state, layer) {
@@ -364,6 +365,9 @@ export default {
         // Caso contrário, mostrar todas as camadas editáveis
         return layerType.editable;
       });
+    },
+    availableBaseGroupLayers(state) {
+      return state.baseGroupLayers;
     },
     isPropertyFullyCovered(state) {
       // Verificar se toda a área do imóvel está coberta por pelo menos uma camada

@@ -1,13 +1,12 @@
 <template lang="pug">
   .municipality-selector
     el-card.municipality-selector-card(shadow="always")
-      .card-header(slot="header")
-        span Município
       el-select(
         v-model="selectedMunicipality"
         placeholder="Selecione um município"
         @change="handleMunicipalityChange"
         filterable
+        size="small"
       )
         el-option(
           v-for="municipality in municipalities"
@@ -74,5 +73,29 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  
+  span {
+    font-weight: bold;
+    margin-right: 10px;
+    white-space: nowrap;
+  }
+  
+  .el-select {
+    width: 180px;
+  }
+}
+
+// Responsividade para telas pequenas
+@include respond-to(xs) {
+  .municipality-selector-card {
+    width: auto;
+    min-width: 280px;
+  }
+  
+  .card-header {
+    .el-select {
+      width: 150px;
+    }
+  }
 }
 </style>
