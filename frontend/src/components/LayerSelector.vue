@@ -1,24 +1,31 @@
 <template lang="pug">
   .layer-selector-container
     .selection-row
-      .selection-box(v-for="group in availableBaseGroupLayers" :key="group.id")
+      .selection-box(
+        v-for="group in allGroups" 
+        :key="group.id" 
+        :class="{ 'disabled-group': !isGroupEnabled(group) }"
+      )
         .box-title {{ group.title }}
         .box-image
           img(:src="group.image" :alt="group.title")
         .box-dropdown
           el-select(
             v-model="selectedLayerInGroup[group.id]" 
-            :placeholder="'Selecione ' + group.title.toLowerCase()"
+            placeholder="Selecione"
             @change="handleLayerChange($event, group.id)"
-            :disabled="!isMunicipalitySelected || !hasPropertyLayerIfRequired(group)"
+            :disabled="!isGroupEnabled(group)"
           )
             el-option(
-              v-for="layer in group.options" 
+              v-for="layer in getEditableLayersForGroup(group)" 
               :key="layer.id" 
               :label="layer.name" 
               :value="layer.id"
               :disabled="!isLayerSelectable(layer)"
             )
+          .overlay-message(v-if="!isGroupEnabled(group)") 
+            i.el-icon-lock
+            span {{ getGroupDisabledMessage(group) }}
 </template>
 
 <script>
@@ -40,11 +47,19 @@ export default {
   computed: {
     ...mapState({
       selectedLayer: state => state.layers.selectedLayer,
-      layers: state => state.layers.layers
+      layers: state => state.layers.layers,
+      baseGroupLayers: state => state.layers.baseGroupLayers
     }),
     ...mapGetters({
       availableBaseGroupLayers: 'layers/availableBaseGroupLayers'
-    })
+    }),
+    // Retorna todos os grupos, não apenas os disponíveis
+    allGroups() {
+      return this.baseGroupLayers;
+    },
+    hasAreaImovel() {
+      return this.layers.some(l => l.id === 'area_imovel');
+    }
   },
   methods: {
     ...mapActions({
@@ -61,21 +76,46 @@ export default {
         this.selectedLayerInGroup[groupId] = null;
       }
     },
-    hasPropertyLayerIfRequired(group) {
-      // Se não for o grupo "imovel", verificar se área do imóvel já foi definida
-      if (group.id !== 'imovel') {
-        return this.layers.some(l => l.id === 'area_imovel');
-      }
-      return true;
+    // Retorna apenas camadas editáveis para um grupo
+    getEditableLayersForGroup(group) {
+      return group.options.filter(layer => layer.editable === true);
     },
+    // Verifica se o grupo está habilitado
+    isGroupEnabled(group) {
+      // Se não houver camadas editáveis no grupo, desabilitar
+      if (this.getEditableLayersForGroup(group).length === 0) {
+        return false;
+      }
+      
+      // Grupo Imóvel sempre habilitado se município selecionado
+      if (group.id === 'imovel') {
+        return this.isMunicipalitySelected;
+      }
+      
+      // Outros grupos habilitados apenas se área do imóvel definida
+      return this.isMunicipalitySelected && this.hasAreaImovel;
+    },
+    // Verifica se uma camada específica pode ser selecionada
     isLayerSelectable(layer) {
       // Verificar se a camada já foi desenhada
-      if (layer.id === 'area_imovel' && this.layers.some(l => l.id === 'area_imovel')) {
+      if (layer.id === 'area_imovel' && this.hasAreaImovel) {
         return false;
       }
       
       // Adicionar mais regras de seleção conforme necessário
       return true;
+    },
+    // Retorna mensagem explicativa para grupos desabilitados
+    getGroupDisabledMessage(group) {
+      if (!this.isMunicipalitySelected) {
+        return 'Selecione um município primeiro';
+      }
+      
+      if (group.id !== 'imovel' && !this.hasAreaImovel) {
+        return 'Define a área do imóvel primeiro';
+      }
+      
+      return '';
     }
   },
   // Manter seleção sincronizada com o estado global
@@ -83,7 +123,7 @@ export default {
     selectedLayer(newValue) {
       if (newValue) {
         // Encontrar o grupo ao qual esta camada pertence
-        for (const group of this.availableBaseGroupLayers) {
+        for (const group of this.allGroups) {
           const belongsToThisGroup = group.options.some(option => option.id === newValue);
           if (belongsToThisGroup) {
             this.$set(this.selectedLayerInGroup, group.id, newValue);
@@ -117,6 +157,18 @@ export default {
   padding: 10px;
   display: flex;
   flex-direction: column;
+  position: relative;
+  transition: all 0.3s ease;
+  
+  &.disabled-group {
+    opacity: 0.85;
+    background-color: #e9e9e9;
+    
+    .box-title,
+    .box-image img {
+      filter: grayscale(60%);
+    }
+  }
 }
 
 .box-title {
@@ -138,7 +190,8 @@ export default {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  background-color: #F2F2F2;
+  background-color: transparent;
+  position: relative;
 }
 
 .box-dropdown ::v-deep .el-input__inner {
@@ -151,6 +204,33 @@ export default {
   max-width: 100%;
   height: 40px;
   object-fit: contain;
+}
+
+.overlay-message {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(255, 255, 255, 0.6);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  border-radius: 8px;
+  text-align: center;
+  
+  i {
+    font-size: 18px;
+    margin-bottom: 5px;
+    color: #909399;
+  }
+  
+  span {
+    font-size: 12px;
+    color: #606266;
+    padding: 0 10px;
+  }
 }
 
 /* Responsivo */
