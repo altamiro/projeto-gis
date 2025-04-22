@@ -10,7 +10,7 @@
           type="primary"
           icon="el-icon-edit"
           @click="startDrawing"
-          :disabled="isDrawing"
+          :disabled="isDrawing || !isLayerSelectable"
         ) Desenhar
         el-button(
           type="danger"
@@ -57,6 +57,25 @@ export default {
     },
     hasLayerDrawn() {
       return this.layers.some(l => l.id === this.selectedLayer);
+    },
+    isLayerSelectable() {
+      if (!this.selectedLayer) return false;
+      
+      // Se a camada área do imóvel já foi desenhada e estamos tentando desenhá-la novamente
+      if (this.selectedLayer === 'area_imovel' && this.hasLayerDrawn) {
+        return false;
+      }
+      
+      // Se for outra camada e ainda não temos área do imóvel
+      if (this.selectedLayer !== 'area_imovel' && !this.layers.some(l => l.id === 'area_imovel')) {
+        return false;
+      }
+      
+      return true;
+    },
+    layerGroup() {
+      if (!this.selectedLayer) return null;
+      return this.$store.getters['layers/getLayerGroup'](this.selectedLayer);
     }
   },
   methods: {
@@ -79,11 +98,12 @@ export default {
         this.isDrawing = true;
 
         // Determinar o tipo de geometria a ser desenhada (ponto ou polígono)
-        const geometryType = this.selectedLayer === 'sede_imovel' ? 'point' : 'polygon';
+        const selectedLayerType = this.layerTypes.find(lt => lt.id === this.selectedLayer);
+        const geometryType = selectedLayerType && selectedLayerType.tipo_tema === 'point' ? 'point' : 'polygon';
 
         // Se for sede do imóvel, precisamos recuperar a geometria da área do imóvel
         let propertyGeometry = null;
-        if (this.selectedLayer === 'sede_imovel') {
+        if (this.selectedLayer !== 'area_imovel') {
           const propertyLayer = this.layers.find(l => l.id === 'area_imovel');
           if (!propertyLayer) {
             throw new Error('A área do imóvel precisa ser definida primeiro.');
@@ -136,9 +156,9 @@ export default {
           }
         };
 
-        // Evento de conclusão do desenho personalizado para a sede
+        // Evento de conclusão do desenho personalizado para validar a geometria
         const onDrawComplete = (geometry) => {
-
+          // Validações específicas por tipo de camada
           // Para área do imóvel, validar se pelo menos 50% está dentro do município selecionado
           if (this.selectedLayer === 'area_imovel' && this.municipalityGeometry) {
             try {
@@ -174,7 +194,6 @@ export default {
               }
             } catch (error) {
               console.error("Erro na validação:", error);
-
               // Em caso de erro na validação, permitir continuar
               console.log("Ignorando erro de validação para permitir uso");
             }
@@ -196,19 +215,17 @@ export default {
             }
           }
 
-          // Para área do imóvel, validar se intersecta o município selecionado
-          if (this.selectedLayer === 'area_imovel' && this.municipalityGeometry) {
-            const intersectsMunicipality = arcgisService.validateIntersectsWithMunicipality(
-              geometry,
-              this.municipalityGeometry
-            );
-
-            if (!intersectsMunicipality) {
+          // Verificações para outras camadas que exigem estar dentro da área do imóvel
+          if (['vegetacao_nativa', 'area_consolidada', 'area_pousio'].includes(this.selectedLayer)) {
+            const isInside = arcgisService.isWithin(geometry, propertyGeometry);
+            
+            if (!isInside) {
+              // Mostrar mensagem de erro
               this.addAlert({
                 type: 'error',
-                message: 'A área do imóvel deve intersectar o município selecionado.'
+                message: `A camada "${this.selectedLayerName}" deve estar completamente dentro da área do imóvel.`
               });
-
+              
               return null;
             }
           }
@@ -222,6 +239,7 @@ export default {
 
         // Se geometry for null, significa que foi cancelado por validação
         if (!geometry) {
+          this.isDrawing = false;
           return;
         }
 
@@ -252,7 +270,7 @@ export default {
         this.isDrawing = false;
       }
     },
-
+    
     confirmDeleteLayer() {
       if (this.selectedLayer === 'area_imovel') {
         this.deleteConfirmationMessage = 'ATENÇÃO: Excluir a Área do Imóvel irá remover TODAS as camadas. Esta ação é irreversível. Deseja continuar?';
@@ -262,6 +280,7 @@ export default {
 
       this.deleteDialogVisible = true;
     },
+    
     async deleteLayer() {
       try {
         const result = await this.removeLayer(this.selectedLayer);
@@ -303,10 +322,23 @@ export default {
 .layer-info {
   font-weight: $font-weight-bold;
   color: $primary-color;
+  margin-left: 10px;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
 }
 
 .draw-buttons {
   @include flex(row, nowrap, space-between, center);
   margin-top: 10px;
+}
+
+/* Responsivo */
+@media (max-width: 768px) {
+  .draw-tools-card {
+    width: 100%;
+  }
 }
 </style>

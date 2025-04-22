@@ -408,7 +408,7 @@ export const LAYER_TYPES = [
     grupo: "app_e_uso_restrito",
     order: 22,
     id: "app_reservatorio_artificial_decorrente_barramento",
-    name: "Área de Preservação Permanente de Reservatório artificial decorrente de barramento de cursos d’água",
+    name: "Área de Preservação Permanente de Reservatório artificial decorrente de barramento de cursos d'água",
     tipo_tema: "mult",
     editable: true,
     required: false
@@ -735,33 +735,33 @@ export const LAYER_TYPES = [
   },
   {
     tema_id: null,
-    grupo: null,
-    order: null,
+    grupo: "cobertura_do_solo",
+    order: 98,
     id: "hydrography",
     name: "Hidrografia",
-    tipo_tema: null,
+    tipo_tema: "mult",
     editable: false,
     required: false,
   },
   {
     tema_id: null,
-    grupo: null,
-    order: null,
+    grupo: "cobertura_do_solo",
+    order: 99,
     id: "anthropizedAfter2008",
     name: "Área Antropizada após 2008",
-    tipo_tema: null,
+    tipo_tema: "mult",
     editable: false,
     required: false,
-  },
+  }
 ];
 
-// preencha dinamicamente as opções para cada grupo
+// Preencha dinamicamente as opções para cada grupo
 export const GROUP_LAYER = BASE_GROUP_LAYER.map(group => {
   // Filtrar LAYER_TYPES para obter apenas itens que pertencem a este grupo
   const groupOptions = LAYER_TYPES.filter(layer => layer.grupo === group.id)
     // Classificar pela propriedade de order para manter a ordem pretendida
     .sort((a, b) => a.order - b.order)
-    // Mapeie para o formato que você deseja para opções
+    // Mapear para o formato que você deseja para opções
     .map(layer => ({
       id: layer.id,
       name: layer.name,

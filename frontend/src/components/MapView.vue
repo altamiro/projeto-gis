@@ -5,7 +5,7 @@
       .header-right
         municipality-selector
       .header-center(v-if="municipalitySelected")
-        layer-selector
+        layer-selector(:isMunicipalitySelected="municipalitySelected")
     
     // Middle
     .map-container
@@ -96,7 +96,6 @@ export default {
 </script>
 
 <style lang="scss">
-
 .map-container-wrapper {
   display: flex;
   flex-direction: column;

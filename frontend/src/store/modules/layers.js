@@ -40,7 +40,14 @@ export default {
     },
   },
   actions: {
-    selectLayer({ commit, state, rootState }, layerId) {
+    selectLayer({ commit, state, rootState, dispatch }, layerId) {
+      // Verificar se existe o layerId
+      const layerType = state.layerTypes.find(lt => lt.id === layerId);
+      if (!layerType) {
+        console.error(`Tipo de camada inválido: ${layerId}`);
+        return false;
+      }
+
       // Verificar se a camada "Área do imóvel" já foi definida
       const area_imovelDefined = state.layers.some(
         (l) => l.id === "area_imovel"
@@ -48,11 +55,20 @@ export default {
 
       // Se não for a camada "Área do imóvel" e ela ainda não estiver definida, impedir a seleção
       if (layerId !== "area_imovel" && !area_imovelDefined) {
-        rootState.validation.alerts.push({
+        dispatch("validation/addAlert", {
           type: "error",
           message:
             "É necessário definir a Área do imóvel antes de outras camadas.",
-        });
+        }, { root: true });
+        return false;
+      }
+
+      // Se quiser selecionar a camada "Área do imóvel" e ela já estiver definida, impedir a seleção
+      if (layerId === "area_imovel" && area_imovelDefined) {
+        dispatch("validation/addAlert", {
+          type: "info",
+          message: "A Área do imóvel já foi definida. Para modificá-la, use a ferramenta de exclusão primeiro."
+        }, { root: true });
         return false;
       }
 
@@ -93,10 +109,10 @@ export default {
       });
 
       if (!validationResult.success) {
-        rootState.validation.alerts.push({
+        dispatch("validation/addAlert", {
           type: "error",
           message: validationResult.message,
-        });
+        }, { root: true });
         return validationResult;
       }
 
@@ -133,6 +149,7 @@ export default {
 
       return { success: true };
     },
+    
     removeLayer({ commit, dispatch, state }, layerId) {
       if (layerId === "area_imovel") {
         // Se a camada for "Área do imóvel", remover todas as camadas
@@ -153,10 +170,12 @@ export default {
         return { success: true };
       }
     },
+    
     async calculateArea(_, geometry) {
       // Utilizar o serviço ArcGIS para calcular área
       return arcgisService.calculateArea(geometry);
     },
+    
     async validateLayerGeometry({ state, rootState }, { layerId, geometry }) {
       // Implementação de validação usando operações geométricas do ArcGIS
 
@@ -337,10 +356,45 @@ export default {
           return { success: true };
         }
 
+        case "area_consolidada": {
+          // Verificar se está dentro da área do imóvel
+          const area_imovel = state.layers.find(l => l.id === "area_imovel");
+          if (!area_imovel || !area_imovel.geometry) {
+            return {
+              success: false,
+              message: "A área do imóvel precisa ser definida primeiro."
+            };
+          }
+          
+          const isInsideProperty = arcgisService.isWithin(geometry, area_imovel.geometry);
+          
+          if (!isInsideProperty) {
+            return {
+              success: false,
+              message: "A área consolidada deve estar dentro da área do imóvel."
+            };
+          }
+
+          // Verificar sobreposição com vegetação nativa
+          const vegetacao_nativa = state.layers.find(l => l.id === "vegetacao_nativa");
+          if (vegetacao_nativa && vegetacao_nativa.geometry) {
+            const overlapsVegetation = arcgisService.intersects(geometry, vegetacao_nativa.geometry);
+            if (overlapsVegetation) {
+              return {
+                success: false,
+                message: "A área consolidada não pode sobrepor áreas de vegetação nativa."
+              };
+            }
+          }
+
+          return { success: true };
+        }
+
         default:
           return { success: true };
       }
     },
+    
     clipOverlappingLayers({ state, commit, dispatch }) {
       // Implementação da lógica de recorte
       console.log("Recortando camadas sobrepostas...");
@@ -366,9 +420,35 @@ export default {
         return layerType.editable;
       });
     },
+    
     availableBaseGroupLayers(state) {
-      return state.baseGroupLayers;
+      const area_imovelDefined = state.layers.some(l => l.id === "area_imovel");
+      
+      // Retorna os grupos de camadas com suas opções filtradas
+      return state.baseGroupLayers.map(group => {
+        // Filtrar opções do grupo com base no estado da área do imóvel
+        let filteredOptions = group.options;
+        
+        // Se a área do imóvel não estiver definida e não for o grupo "imovel"
+        // Retornar o grupo com opções vazias
+        if (!area_imovelDefined && group.id !== "imovel") {
+          filteredOptions = [];
+        } else if (area_imovelDefined && group.id === "imovel") {
+          // Se a área do imóvel já estiver definida e for o grupo "imovel"
+          // Filtrar para remover a camada "area_imovel" das opções
+          filteredOptions = group.options.filter(option => option.id !== "area_imovel");
+        }
+        
+        // Filtrar também por editable = true para mostrar apenas camadas editáveis
+        filteredOptions = filteredOptions.filter(option => option.editable);
+        
+        return {
+          ...group,
+          options: filteredOptions
+        };
+      }).filter(group => group.options.length > 0); // Remover grupos sem opções
     },
+    
     isPropertyFullyCovered(state) {
       // Verificar se toda a área do imóvel está coberta por pelo menos uma camada
       const layers = state.layers;
@@ -390,5 +470,16 @@ export default {
       // Considerar uma pequena margem de erro para arredondamentos
       return Math.abs(propertyLayer.area - coveredArea) < 0.01;
     },
+    
+    // Obtém o grupo ao qual pertence uma camada
+    getLayerGroup: (state) => (layerId) => {
+      for (const group of state.baseGroupLayers) {
+        const layerInGroup = group.options.find(option => option.id === layerId);
+        if (layerInGroup) {
+          return group.id;
+        }
+      }
+      return null;
+    }
   },
 };
