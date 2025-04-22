@@ -76,12 +76,12 @@ export class ArcGISService {
 
     // Inicializar camadas gráficas para cada tipo de camada
     const layerTypes = [
-      "propertyArea",
-      "headquarters",
-      "consolidatedArea",
-      "nativeVegetation",
-      "fallow",
-      "administrativeServitude",
+      "area_imovel",
+      "sede_imovel",
+      "area_consolidada",
+      "vegetacao_nativa",
+      "area_pousio",
+      "area_servidao_administrativa_total",
       "hydrography",
       "anthropizedAfter2008",
       "temp", // Adicionar camada temporária para desenho em tempo real
@@ -615,53 +615,53 @@ export class ArcGISService {
   getDefaultSymbol(layerId) {
     // Definir símbolos padrão para cada tipo de camada
     const symbols = {
-      propertyArea: {
+      area_imovel: {
         type: "simple-fill",
-        color: colors.layers.propertyArea.fill,
+        color: colors.layers.area_imovel.fill,
         outline: {
-          color: colors.layers.propertyArea.outline,
+          color: colors.layers.area_imovel.outline,
           width: 2,
         },
       },
-      headquarters: {
+      sede_imovel: {
         type: "simple-marker",
         style: "square",
-        color: colors.layers.headquarters.fill,
+        color: colors.layers.sede_imovel.fill,
         size: "12px",
         outline: {
-          color: colors.layers.headquarters.outline,
+          color: colors.layers.sede_imovel.outline,
           width: 1,
         },
       },
-      consolidatedArea: {
+      area_consolidada: {
         type: "simple-fill",
-        color: colors.layers.consolidatedArea.fill,
+        color: colors.layers.area_consolidada.fill,
         outline: {
-          color: colors.layers.consolidatedArea.outline,
+          color: colors.layers.area_consolidada.outline,
           width: 1,
         },
       },
-      nativeVegetation: {
+      vegetacao_nativa: {
         type: "simple-fill",
-        color: colors.layers.nativeVegetation.fill,
+        color: colors.layers.vegetacao_nativa.fill,
         outline: {
-          color: colors.layers.nativeVegetation.outline,
+          color: colors.layers.vegetacao_nativa.outline,
           width: 1,
         },
       },
-      fallow: {
+      area_pousio: {
         type: "simple-fill",
-        color: colors.layers.fallow.fill,
+        color: colors.layers.area_pousio.fill,
         outline: {
-          color: colors.layers.fallow.outline,
+          color: colors.layers.area_pousio.outline,
           width: 1,
         },
       },
-      administrativeServitude: {
+      area_servidao_administrativa_total: {
         type: "simple-fill",
-        color: colors.layers.administrativeServitude.fill,
+        color: colors.layers.area_servidao_administrativa_total.fill,
         outline: {
-          color: colors.layers.administrativeServitude.outline,
+          color: colors.layers.area_servidao_administrativa_total.outline,
           width: 1,
         },
       },
@@ -683,7 +683,7 @@ export class ArcGISService {
       },
     };
 
-    return symbols[layerId] || symbols.propertyArea;
+    return symbols[layerId] || symbols.area_imovel;
   }
 
   // Verifica se pelo menos 50% da área da geometria está dentro do município
@@ -755,7 +755,7 @@ export class ArcGISService {
         }
 
         // Calcular áreas
-        const propertyArea = geometryEngine.geodesicArea(
+        const area_imovel = geometryEngine.geodesicArea(
           geomToProject,
           "square-meters"
         );
@@ -765,7 +765,7 @@ export class ArcGISService {
         );
 
         // Calcular porcentagem
-        const percentage = (intersectionArea / propertyArea) * 100;
+        const percentage = (intersectionArea / area_imovel) * 100;
 
         console.log(
           `Porcentagem da área do imóvel dentro do município: ${percentage.toFixed(

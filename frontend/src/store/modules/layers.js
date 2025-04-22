@@ -1,4 +1,5 @@
 import arcgisService from "../../services/arcgis";
+import { LAYER_TYPES } from "../../utils/constants_layers";
 
 export default {
   namespaced: true,
@@ -6,64 +7,7 @@ export default {
     layers: [],
     selectedLayer: null,
     drawingMode: false,
-    layerTypes: [
-      {
-        id: "propertyArea",
-        name: "Área do imóvel",
-        order: 1,
-        editable: true,
-        required: true,
-      },
-      {
-        id: "headquarters",
-        name: "Sede do imóvel",
-        order: 2,
-        editable: true,
-        required: false,
-      },
-      {
-        id: "consolidatedArea",
-        name: "Área consolidada",
-        order: 3,
-        editable: true,
-        required: false,
-      },
-      {
-        id: "nativeVegetation",
-        name: "Remanescente de vegetação nativa",
-        order: 4,
-        editable: true,
-        required: false,
-      },
-      {
-        id: "fallow",
-        name: "Área de pousio",
-        order: 5,
-        editable: true,
-        required: false,
-      },
-      {
-        id: "administrativeServitude",
-        name: "Servidão administrativa",
-        order: 6,
-        editable: true,
-        required: false,
-      },
-      {
-        id: "hydrography",
-        name: "Hidrografia",
-        order: 7,
-        editable: false,
-        required: false,
-      },
-      {
-        id: "anthropizedAfter2008",
-        name: "Área Antropizada após 2008",
-        order: 8,
-        editable: false,
-        required: false,
-      },
-    ],
+    layerTypes: LAYER_TYPES,
   },
   mutations: {
     ADD_LAYER(state, layer) {
@@ -97,12 +41,12 @@ export default {
   actions: {
     selectLayer({ commit, state, rootState }, layerId) {
       // Verificar se a camada "Área do imóvel" já foi definida
-      const propertyAreaDefined = state.layers.some(
-        (l) => l.id === "propertyArea"
+      const area_imovelDefined = state.layers.some(
+        (l) => l.id === "area_imovel"
       );
 
       // Se não for a camada "Área do imóvel" e ela ainda não estiver definida, impedir a seleção
-      if (layerId !== "propertyArea" && !propertyAreaDefined) {
+      if (layerId !== "area_imovel" && !area_imovelDefined) {
         rootState.validation.alerts.push({
           type: "error",
           message:
@@ -166,8 +110,8 @@ export default {
       });
 
       // Se for a área do imóvel, calcular a área líquida
-      if (layerId === "propertyArea") {
-        dispatch("property/calculateNetPropertyArea", null, { root: true });
+      if (layerId === "area_imovel") {
+        dispatch("property/calculateNetarea_imovel", null, { root: true });
       }
 
       // Recalcular área antropizada após 2008
@@ -176,10 +120,10 @@ export default {
       // Se necessário, recortar outras camadas
       if (
         [
-          "propertyArea",
-          "nativeVegetation",
-          "consolidatedArea",
-          "administrativeServitude",
+          "area_imovel",
+          "vegetacao_nativa",
+          "area_consolidada",
+          "area_servidao_administrativa_total",
           "hydrography",
         ].includes(layerId)
       ) {
@@ -189,7 +133,7 @@ export default {
       return { success: true };
     },
     removeLayer({ commit, dispatch, state }, layerId) {
-      if (layerId === "propertyArea") {
+      if (layerId === "area_imovel") {
         // Se a camada for "Área do imóvel", remover todas as camadas
         commit("REMOVE_ALL_LAYERS");
         return {
@@ -217,7 +161,7 @@ export default {
 
       // Validações específicas por tipo de camada
       switch (layerId) {
-        case "propertyArea": {
+        case "area_imovel": {
           // Obter a geometria do município selecionado
           const municipalityGeometry = rootState.property.municipalityGeometry;
           
@@ -266,12 +210,12 @@ export default {
           return { success: true };
         }
 
-        case "headquarters": {
+        case "sede_imovel": {
           // Verificar se a sede está dentro da área do imóvel
-          const propertyArea = state.layers.find(
-            (l) => l.id === "propertyArea"
+          const area_imovel = state.layers.find(
+            (l) => l.id === "area_imovel"
           );
-          if (!propertyArea || !propertyArea.geometry) {
+          if (!area_imovel || !area_imovel.geometry) {
             return {
               success: false,
               message: "A área do imóvel precisa ser definida primeiro.",
@@ -281,7 +225,7 @@ export default {
           // Verificar se está dentro usando o ArcGIS
           const isInsideProperty = arcgisService.isWithin(
             geometry,
-            propertyArea.geometry
+            area_imovel.geometry
           );
 
           if (!isInsideProperty) {
@@ -315,17 +259,17 @@ export default {
           return { success: true };
         }
 
-        case "nativeVegetation": {
+        case "vegetacao_nativa": {
           // Verificar se está dentro da área do imóvel
-          const propertyArea = state.layers.find(l => l.id === "propertyArea");
-          if (!propertyArea || !propertyArea.geometry) {
+          const area_imovel = state.layers.find(l => l.id === "area_imovel");
+          if (!area_imovel || !area_imovel.geometry) {
             return {
               success: false,
               message: "A área do imóvel precisa ser definida primeiro."
             };
           }
           
-          const isInsideProperty = arcgisService.isWithin(geometry, propertyArea.geometry);
+          const isInsideProperty = arcgisService.isWithin(geometry, area_imovel.geometry);
           
           if (!isInsideProperty) {
             return {
@@ -335,12 +279,12 @@ export default {
           }
 
           // Verificar sobreposições não permitidas
-          const consolidatedArea = state.layers.find(l => l.id === "consolidatedArea");
-          const servitudeAreas = state.layers.filter(l => l.id === "administrativeServitude");
+          const area_consolidada = state.layers.find(l => l.id === "area_consolidada");
+          const servitudeAreas = state.layers.filter(l => l.id === "area_servidao_administrativa_total");
           const hydrographyAreas = state.layers.filter(l => l.id === "hydrography");
           
-          if (consolidatedArea && consolidatedArea.geometry) {
-            const overlapsConsolidated = arcgisService.intersects(geometry, consolidatedArea.geometry);
+          if (area_consolidada && area_consolidada.geometry) {
+            const overlapsConsolidated = arcgisService.intersects(geometry, area_consolidada.geometry);
             if (overlapsConsolidated) {
               return {
                 success: false,
@@ -370,17 +314,17 @@ export default {
           return { success: true };
         }
 
-        case "fallow": {
+        case "area_pousio": {
           // Verificar se está dentro da área do imóvel
-          const propertyArea = state.layers.find(l => l.id === "propertyArea");
-          if (!propertyArea || !propertyArea.geometry) {
+          const area_imovel = state.layers.find(l => l.id === "area_imovel");
+          if (!area_imovel || !area_imovel.geometry) {
             return {
               success: false,
               message: "A área do imóvel precisa ser definida primeiro."
             };
           }
           
-          const isInsideProperty = arcgisService.isWithin(geometry, propertyArea.geometry);
+          const isInsideProperty = arcgisService.isWithin(geometry, area_imovel.geometry);
           
           if (!isInsideProperty) {
             return {
@@ -407,14 +351,14 @@ export default {
   getters: {
     availableLayers(state) {
       // Retorna os tipos de camadas disponíveis com base no estado atual
-      const propertyAreaDefined = state.layers.some(
-        (l) => l.id === "propertyArea"
+      const area_imovelDefined = state.layers.some(
+        (l) => l.id === "area_imovel"
       );
 
       return state.layerTypes.filter((layerType) => {
         // Se a área do imóvel não estiver definida, mostrar apenas essa opção
-        if (!propertyAreaDefined) {
-          return layerType.id === "propertyArea";
+        if (!area_imovelDefined) {
+          return layerType.id === "area_imovel";
         }
 
         // Caso contrário, mostrar todas as camadas editáveis
@@ -424,16 +368,16 @@ export default {
     isPropertyFullyCovered(state) {
       // Verificar se toda a área do imóvel está coberta por pelo menos uma camada
       const layers = state.layers;
-      const propertyLayer = layers.find((l) => l.id === "propertyArea");
+      const propertyLayer = layers.find((l) => l.id === "area_imovel");
 
       if (!propertyLayer) return false;
 
       const coveredArea = layers
         .filter((l) =>
           [
-            "consolidatedArea",
-            "nativeVegetation",
-            "fallow",
+            "area_consolidada",
+            "vegetacao_nativa",
+            "area_pousio",
             "anthropizedAfter2008",
           ].includes(l.id)
         )

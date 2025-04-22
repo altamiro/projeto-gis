@@ -3,19 +3,19 @@
     el-card.area-calculator-card(shadow="always")
       .card-header(slot="header")
         span Áreas Calculadas
-      .area-info(v-if="propertyArea > 0")
+      .area-info(v-if="area_imovel > 0")
         el-descriptions(:column="1" border)
           el-descriptions-item(label="Área do Imóvel")
-            span {{ formatArea(propertyArea) }} ha
+            span {{ formatArea(area_imovel) }} ha
           el-descriptions-item(label="Área Líquida do Imóvel")
-            span {{ formatArea(netPropertyArea) }} ha
+            span {{ formatArea(netarea_imovel) }} ha
           el-descriptions-item(label="Área Antropizada após 2008")
             span {{ formatArea(anthropizedAfter2008) }} ha
       .no-property-info(v-else)
         span Vetorize a área do imóvel para visualizar os cálculos.
       
       // Verificação de cobertura completa
-      .validation-section(v-if="propertyArea > 0")
+      .validation-section(v-if="area_imovel > 0")
         el-alert(
           v-if="!isPropertyFullyCovered"
           title="A área do imóvel não está completamente coberta."
@@ -39,11 +39,11 @@ export default {
   name: 'AreaCalculator',
   computed: {
     ...mapState({
-      propertyArea: state => {
-        const propertyLayer = state.layers.layers.find(l => l.id === 'propertyArea');
+      area_imovel: state => {
+        const propertyLayer = state.layers.layers.find(l => l.id === 'area_imovel');
         return propertyLayer ? propertyLayer.area : 0;
       },
-      netPropertyArea: state => state.property.netPropertyArea,
+      netarea_imovel: state => state.property.netarea_imovel,
       anthropizedAfter2008: state => state.property.anthropizedAfter2008
     }),
     ...mapGetters({

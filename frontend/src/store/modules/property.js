@@ -5,9 +5,9 @@ export default {
   state: {
     municipality: null,
     municipalityGeometry: null,
-    propertyArea: 0,
-    netPropertyArea: 0,
-    headquarters: null,
+    area_imovel: 0,
+    netarea_imovel: 0,
+    sede_imovel: null,
     anthropizedAfter2008: 0
   },
   mutations: {
@@ -18,13 +18,13 @@ export default {
       state.municipalityGeometry = geometry;
     },
     SET_PROPERTY_AREA(state, area) {
-      state.propertyArea = area;
+      state.area_imovel = area;
     },
     SET_NET_PROPERTY_AREA(state, area) {
-      state.netPropertyArea = area;
+      state.netarea_imovel = area;
     },
-    SET_HEADQUARTERS(state, headquarters) {
-      state.headquarters = headquarters;
+    SET_sede_imovel(state, sede_imovel) {
+      state.sede_imovel = sede_imovel;
     },
     SET_ANTHROPIZED_AFTER_2008(state, area) {
       state.anthropizedAfter2008 = area;
@@ -75,28 +75,28 @@ export default {
         return { success: false };
       }
     },
-    calculateNetPropertyArea({ commit, rootState }) {
-      const propertyArea = rootState.layers.layers.find(l => l.id === 'propertyArea')?.area || 0;
-      const administrativeServitudes = rootState.layers.layers
-        .filter(l => l.type === 'administrativeServitude')
+    calculateNetarea_imovel({ commit, rootState }) {
+      const area_imovel = rootState.layers.layers.find(l => l.id === 'area_imovel')?.area || 0;
+      const area_servidao_administrativa_totals = rootState.layers.layers
+        .filter(l => l.type === 'area_servidao_administrativa_total')
         .reduce((sum, layer) => sum + (layer.area || 0), 0);
       
-      const netArea = propertyArea - administrativeServitudes;
+      const netArea = area_imovel - area_servidao_administrativa_totals;
       commit('SET_NET_PROPERTY_AREA', netArea);
       return netArea;
     },
     calculateAnthropizedAfter2008({ commit, rootState }) {
-      const propertyArea = rootState.layers.layers.find(l => l.id === 'propertyArea')?.area || 0;
-      const consolidatedArea = rootState.layers.layers.find(l => l.id === 'consolidatedArea')?.area || 0;
-      const nativeVegetation = rootState.layers.layers.find(l => l.id === 'nativeVegetation')?.area || 0;
-      const administrativeServitudes = rootState.layers.layers
-        .filter(l => l.type === 'administrativeServitude')
+      const area_imovel = rootState.layers.layers.find(l => l.id === 'area_imovel')?.area || 0;
+      const area_consolidada = rootState.layers.layers.find(l => l.id === 'area_consolidada')?.area || 0;
+      const vegetacao_nativa = rootState.layers.layers.find(l => l.id === 'vegetacao_nativa')?.area || 0;
+      const area_servidao_administrativa_totals = rootState.layers.layers
+        .filter(l => l.type === 'area_servidao_administrativa_total')
         .reduce((sum, layer) => sum + (layer.area || 0), 0);
       const hydrography = rootState.layers.layers
         .filter(l => l.type === 'hydrography')
         .reduce((sum, layer) => sum + (layer.area || 0), 0);
       
-      const anthropizedAfter2008 = propertyArea - (consolidatedArea + nativeVegetation + administrativeServitudes + hydrography);
+      const anthropizedAfter2008 = area_imovel - (area_consolidada + vegetacao_nativa + area_servidao_administrativa_totals + hydrography);
       commit('SET_ANTHROPIZED_AFTER_2008', anthropizedAfter2008);
       return anthropizedAfter2008;
     }

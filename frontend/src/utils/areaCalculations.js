@@ -7,7 +7,7 @@ export default {
    * @param {Array} servitudeGeometries - Array de geometrias das servidões administrativas
    * @returns {Number} Área líquida em hectares
    */
-  calculateNetPropertyArea(propertyGeometry, servitudeGeometries) {
+  calculateNetarea_imovel(propertyGeometry, servitudeGeometries) {
     // Calcular área total do imóvel
     const totalArea = arcgisService.calculateArea(propertyGeometry);
     
@@ -49,11 +49,11 @@ export default {
     // Calcular áreas das demais camadas (considerando apenas interseções com a área do imóvel)
     
     // Área consolidada
-    let consolidatedArea = 0;
+    let area_consolidada = 0;
     if (consolidatedGeometry) {
       const intersection = arcgisService.intersection(propertyGeometry, consolidatedGeometry);
       if (intersection) {
-        consolidatedArea = arcgisService.calculateArea(intersection);
+        area_consolidada = arcgisService.calculateArea(intersection);
       }
     }
     
@@ -85,7 +85,7 @@ export default {
     }
     
     // Calcular área antropizada após 2008
-    const anthropizedAfter2008 = totalArea - (consolidatedArea + vegetationArea + servitudeArea + hydrographyArea);
+    const anthropizedAfter2008 = totalArea - (area_consolidada + vegetationArea + servitudeArea + hydrographyArea);
     
     // Garantir que não seja negativo (pode ocorrer por arredondamentos ou imprecisões)
     return Math.max(0, anthropizedAfter2008);

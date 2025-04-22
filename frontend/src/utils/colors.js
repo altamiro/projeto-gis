@@ -12,37 +12,37 @@ export default {
   // Cores das camadas
   layers: {
     // Área do imóvel
-    propertyArea: {
+    area_imovel: {
       fill: [255, 255, 255, 0.2],
       outline: [0, 0, 0, 1]
     },
     
     // Sede do imóvel
-    headquarters: {
+    sede_imovel: {
       fill: [255, 0, 0, 1],
       outline: [0, 0, 0, 1]
     },
     
     // Área consolidada
-    consolidatedArea: {
+    area_consolidada: {
       fill: [245, 166, 35, 0.6],
       outline: [245, 166, 35, 1]
     },
     
     // Vegetação nativa
-    nativeVegetation: {
+    vegetacao_nativa: {
       fill: [60, 179, 113, 0.6],
       outline: [60, 179, 113, 1]
     },
     
     // Área de pousio
-    fallow: {
+    area_pousio: {
       fill: [255, 255, 0, 0.6],
       outline: [255, 255, 0, 1]
     },
     
     // Servidão administrativa
-    administrativeServitude: {
+    area_servidao_administrativa_total: {
       fill: [128, 0, 128, 0.6],
       outline: [128, 0, 128, 1]
     },

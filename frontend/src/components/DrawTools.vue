@@ -68,7 +68,7 @@ export default {
     async startDrawing() {
       try {
         // Verificar se um município foi selecionado
-        if (!this.municipalityGeometry && this.selectedLayer === 'propertyArea') {
+        if (!this.municipalityGeometry && this.selectedLayer === 'area_imovel') {
           this.addAlert({
             type: 'error',
             message: 'Por favor, selecione um município antes de desenhar a área do imóvel.'
@@ -79,12 +79,12 @@ export default {
         this.isDrawing = true;
 
         // Determinar o tipo de geometria a ser desenhada (ponto ou polígono)
-        const geometryType = this.selectedLayer === 'headquarters' ? 'point' : 'polygon';
+        const geometryType = this.selectedLayer === 'sede_imovel' ? 'point' : 'polygon';
 
         // Se for sede do imóvel, precisamos recuperar a geometria da área do imóvel
         let propertyGeometry = null;
-        if (this.selectedLayer === 'headquarters') {
-          const propertyLayer = this.layers.find(l => l.id === 'propertyArea');
+        if (this.selectedLayer === 'sede_imovel') {
+          const propertyLayer = this.layers.find(l => l.id === 'area_imovel');
           if (!propertyLayer) {
             throw new Error('A área do imóvel precisa ser definida primeiro.');
           }
@@ -94,7 +94,7 @@ export default {
         // Adicionar callback para validação em tempo real para a sede
         const onUpdateGeometry = (tempGeometry) => {
           // Se estiver desenhando a sede, verificar se está dentro da área do imóvel
-          if (this.selectedLayer === 'headquarters' && tempGeometry && propertyGeometry) {
+          if (this.selectedLayer === 'sede_imovel' && tempGeometry && propertyGeometry) {
             // Verificar se o ponto está dentro da área do imóvel
             const isInside = arcgisService.isWithin(tempGeometry, propertyGeometry);
 
@@ -106,7 +106,7 @@ export default {
               arcgisService.updateTempGraphicSymbol('valid');
             }
             // Validação em tempo real para área do imóvel
-          } else if (this.selectedLayer === 'propertyArea' && tempGeometry && this.municipalityGeometry) {
+          } else if (this.selectedLayer === 'area_imovel' && tempGeometry && this.municipalityGeometry) {
             // Verificar interseção básica
             const intersectsMunicipality = arcgisService.validateIntersectsWithMunicipality(
               tempGeometry,
@@ -140,7 +140,7 @@ export default {
         const onDrawComplete = (geometry) => {
 
           // Para área do imóvel, validar se pelo menos 50% está dentro do município selecionado
-          if (this.selectedLayer === 'propertyArea' && this.municipalityGeometry) {
+          if (this.selectedLayer === 'area_imovel' && this.municipalityGeometry) {
             try {
               // Validar interseção básica
               const intersectsMunicipality = arcgisService.validateIntersectsWithMunicipality(
@@ -181,7 +181,7 @@ export default {
           }
 
           // Para sede do imóvel, validar se está dentro da área do imóvel
-          if (this.selectedLayer === 'headquarters' && propertyGeometry) {
+          if (this.selectedLayer === 'sede_imovel' && propertyGeometry) {
             const isInside = arcgisService.isWithin(geometry, propertyGeometry);
 
             if (!isInside) {
@@ -197,7 +197,7 @@ export default {
           }
 
           // Para área do imóvel, validar se intersecta o município selecionado
-          if (this.selectedLayer === 'propertyArea' && this.municipalityGeometry) {
+          if (this.selectedLayer === 'area_imovel' && this.municipalityGeometry) {
             const intersectsMunicipality = arcgisService.validateIntersectsWithMunicipality(
               geometry,
               this.municipalityGeometry
@@ -254,7 +254,7 @@ export default {
     },
 
     confirmDeleteLayer() {
-      if (this.selectedLayer === 'propertyArea') {
+      if (this.selectedLayer === 'area_imovel') {
         this.deleteConfirmationMessage = 'ATENÇÃO: Excluir a Área do Imóvel irá remover TODAS as camadas. Esta ação é irreversível. Deseja continuar?';
       } else {
         this.deleteConfirmationMessage = `Tem certeza que deseja excluir a camada "${this.selectedLayerName}"?`;
