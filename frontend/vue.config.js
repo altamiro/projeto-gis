@@ -1,13 +1,13 @@
-const { defineConfig } = require('@vue/cli-service')
-const path = require('path')
+const { defineConfig } = require("@vue/cli-service");
+const path = require("path");
 
 module.exports = defineConfig({
   transpileDependencies: true,
   lintOnSave: false,
-  
+
   // Configuração de publicação
-  publicPath: '/car-online/',
-  
+  publicPath: "/car-online/",
+
   // Configuração do servidor de desenvolvimento
   devServer: {
     port: 9292,
@@ -16,59 +16,65 @@ module.exports = defineConfig({
     client: {
       overlay: {
         warnings: false,
-        errors: true
-      }
-    }
+        errors: true,
+      },
+    },
+    proxy: {
+      "/car-online/api": {
+        target: "http://localhost:9291",
+        changeOrigin: true,
+      },
+    },
   },
-  
+
   css: {
     loaderOptions: {
       // Configuração atualizada para a sintaxe moderna do Sass
       scss: {
-        additionalData: `@use "@/assets/styles/index" as *;`
-      }
-    }
+        additionalData: `@use "@/assets/styles/index" as *;`,
+      },
+    },
   },
-  
+
   configureWebpack: {
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, 'src'),
-        'vue$': 'vue/dist/vue.esm.js',
-        'components': path.resolve(__dirname, 'src/components'),
-        'views': path.resolve(__dirname, 'src/views'),
-        'services': path.resolve(__dirname, 'src/services'),
-        'utils': path.resolve(__dirname, 'src/utils'),
-        'store': path.resolve(__dirname, 'src/store')
-      }
+        "@": path.resolve(__dirname, "src"),
+        vue$: "vue/dist/vue.esm.js",
+        components: path.resolve(__dirname, "src/components"),
+        views: path.resolve(__dirname, "src/views"),
+        services: path.resolve(__dirname, "src/services"),
+        utils: path.resolve(__dirname, "src/utils"),
+        store: path.resolve(__dirname, "src/store"),
+      },
     },
     performance: {
-      hints: false
+      hints: false,
     },
     // Otimizações para Node.js v18
     optimization: {
-      moduleIds: 'deterministic',
-      runtimeChunk: 'single',
+      moduleIds: "deterministic",
+      runtimeChunk: "single",
       splitChunks: {
         cacheGroups: {
           vendor: {
             test: /[\\/]node_modules[\\/]/,
-            name: 'vendors',
-            chunks: 'all'
-          }
-        }
-      }
-    }
+            name: "vendors",
+            chunks: "all",
+          },
+        },
+      },
+    },
   },
-  
-  chainWebpack: config => {
+
+  chainWebpack: (config) => {
     // Configuração específica para CSS do ArcGIS
     config.module
-      .rule('css')
+      .rule("css")
       .test(/\.css$/)
-      .oneOf('normal')
-      .use('postcss-loader')
-      .tap(options => {
+      .oneOf("normal")
+      .use("postcss-loader")
+      .tap((options) => {
         options = options || {};
         options.postcssOptions = options.postcssOptions || {};
         options.postcssOptions.plugins = options.postcssOptions.plugins || [];
@@ -77,12 +83,12 @@ module.exports = defineConfig({
 
     // Configuração para arquivos Pug
     config.module
-      .rule('pug')
+      .rule("pug")
       .test(/\.pug$/)
-      .use('pug-plain-loader')
-      .loader('pug-plain-loader')
+      .use("pug-plain-loader")
+      .loader("pug-plain-loader")
       .end();
   },
-  
-  productionSourceMap: false
+
+  productionSourceMap: false,
 });
