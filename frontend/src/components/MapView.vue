@@ -22,7 +22,6 @@
         v-if="mapLoaded && selectedLayer && showSidebar"
         :class="{'floating-tools-left': sidebarPosition === 'left', 'floating-tools-right': sidebarPosition === 'right'}"
       )
-        draw-tools
         area-calculator
     
     // Footer
@@ -44,7 +43,6 @@ import { mapState, mapGetters } from 'vuex';
 import arcgisService from '../services/arcgis';
 import MunicipalitySelector from './MunicipalitySelector.vue';
 import LayerSelector from './LayerSelector.vue';
-import DrawTools from './DrawTools.vue';
 import AreaCalculator from './AreaCalculator.vue';
 import ValidationAlert from './ValidationAlert.vue';
 import MapToolbar from './MapToolbar.vue';
@@ -54,7 +52,6 @@ export default {
   components: {
     MunicipalitySelector,
     LayerSelector,
-    DrawTools,
     AreaCalculator,
     ValidationAlert,
     MapToolbar

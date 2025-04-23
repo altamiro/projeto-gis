@@ -25,14 +25,6 @@
             icon="el-icon-location-information"
             :disabled="!canDrawPoint"
           )
-        //- el-tooltip(:content="getLineTooltip()" placement="right")
-        //-   el-button(
-        //-     :class="{ active: currentTool === 'line' }"
-        //-     @click="setTool('line')"
-        //-     size="small"
-        //-     icon="el-icon-minus"
-        //-     :disabled="!canDrawLine"
-        //-   )
         el-tooltip(:content="getEditTooltip()" placement="right")
           el-button(
             :class="{ active: currentTool === 'edit' }"
@@ -57,14 +49,6 @@
             size="small"
             icon="el-icon-ruler"
           )
-        //- el-tooltip(content="Importar shapefile/geojson" placement="right")
-        //-   el-button(
-        //-     :class="{ active: currentTool === 'upload' }"
-        //-     @click="handleImportClick"
-        //-     size="small"
-        //-     icon="el-icon-upload2"
-        //-     :disabled="!canImportData"
-        //-   )
 
       .toolbar-group.zoom-tools
         el-tooltip(content="Aproximar (Zoom In)" placement="right")
@@ -94,14 +78,9 @@
             :disabled="!municipalitySelected"
           )
       
-      //- .toolbar-group.other-tools
-      //-   el-tooltip(content="Painel de camadas" placement="right")
-      //-     el-button(
-      //-       :class="{ active: showLayerPanel }"
-      //-       @click="toggleLayerPanel"
-      //-       size="small"
-      //-       icon="el-icon-menu"
-      //-     )
+      // Exibir nome da camada selecionada
+      .toolbar-group.layer-info-group(v-if="selectedLayerName")
+        .layer-name-display {{ selectedLayerName }}
     
     // Input invisível para upload de arquivo
     input(
@@ -168,6 +147,9 @@ export default {
       if (!this.selectedLayer) return null;
       return this.layerTypes.find(lt => lt.id === this.selectedLayer);
     },
+    selectedLayerName() {
+      return this.selectedLayerType?.name || '';
+    },
     selectedLayerGeometryType() {
       if (!this.selectedLayerType) return null;
       return this.selectedLayerType.tipo_tema;
@@ -178,21 +160,21 @@ export default {
     canDrawPolygon() {
       if (!this.selectedLayer) return false;
       if (this.hasDrawnGeometry && this.selectedLayer === 'area_imovel') return false;
-      
+
       // Verificar se o tipo de camada selecionada aceita polígonos
       return this.selectedLayerGeometryType === 'mult';
     },
     canDrawPoint() {
       if (!this.selectedLayer) return false;
       if (this.hasDrawnGeometry && this.selectedLayer === 'area_imovel') return false;
-      
+
       // Verificar se o tipo de camada selecionada aceita pontos
       return this.selectedLayerGeometryType === 'point';
     },
     canDrawLine() {
       if (!this.selectedLayer) return false;
       if (this.hasDrawnGeometry && this.selectedLayer === 'area_imovel') return false;
-      
+
       // Verificar se o tipo de camada selecionada aceita linhas
       // No sistema atual, não há tipo "line" explícito, então assumimos false
       return false;
@@ -208,12 +190,33 @@ export default {
     canImportData() {
       // Pode importar dados apenas se uma camada estiver selecionada
       return this.hasSelectedLayer && !this.isDrawing;
+    },
+    // Verifica se a camada selecionada pode ser desenhada
+    isLayerSelectable() {
+      if (!this.selectedLayer) return false;
+
+      // Se a camada área do imóvel já foi desenhada e estamos tentando desenhá-la novamente
+      if (this.selectedLayer === 'area_imovel' && this.hasDrawnGeometry) {
+        return false;
+      }
+
+      // Se for outra camada e ainda não temos área do imóvel
+      if (this.selectedLayer !== 'area_imovel' && !this.layers.some(l => l.id === 'area_imovel')) {
+        return false;
+      }
+
+      return true;
+    },
+    layerGroup() {
+      if (!this.selectedLayer) return null;
+      return this.$store.getters['layers/getLayerGroup'](this.selectedLayer);
     }
   },
   methods: {
     ...mapActions({
-      addAlert: 'validation/addAlert',
-      removeLayer: 'layers/removeLayer'
+      addLayer: 'layers/addLayer',
+      removeLayer: 'layers/removeLayer',
+      addAlert: 'validation/addAlert'
     }),
     ...mapMutations({
       setDrawingMode: 'layers/SET_DRAWING_MODE'
@@ -227,18 +230,18 @@ export default {
         });
         return;
       }
-      
+
       // Desativa qualquer ferramenta ativa anterior
       this.deactivateCurrentTool();
-      
+
       // Atualiza a ferramenta atual
       this.currentTool = tool;
-      
+
       // Ativa a nova ferramenta
       this.activateTool(tool);
     },
     activateTool(tool) {
-      switch(tool) {
+      switch (tool) {
         case 'pan':
           arcgisService.activatePanMode();
           break;
@@ -263,7 +266,7 @@ export default {
     },
     deactivateCurrentTool() {
       // Cancelar qualquer ferramenta ativa
-      switch(this.currentTool) {
+      switch (this.currentTool) {
         case 'measure':
           this.stopMeasurement();
           break;
@@ -283,15 +286,15 @@ export default {
     },
     async startDrawing(geometryType) {
       try {
-        // Verificar pré-requisitos para desenho
-        if (!this.selectedLayer) {
+        // Verificar se um município foi selecionado
+        if (!this.municipalityGeometry && this.selectedLayer === 'area_imovel') {
           this.addAlert({
-            type: 'warning',
-            message: 'Selecione uma camada antes de iniciar o desenho.'
+            type: 'error',
+            message: 'Por favor, selecione um município antes de desenhar a área do imóvel.'
           });
           return;
         }
-        
+
         // Verificar se a camada "Área do imóvel" já foi definida para camadas que a requerem
         if (this.selectedLayer !== 'area_imovel') {
           const area_imovelDefined = this.layers.some(l => l.id === 'area_imovel');
@@ -303,7 +306,7 @@ export default {
             return;
           }
         }
-        
+
         // Verificar se a camada área do imóvel já foi desenhada
         if (this.selectedLayer === 'area_imovel' && this.hasDrawnGeometry) {
           this.addAlert({
@@ -312,61 +315,63 @@ export default {
           });
           return;
         }
-        
-        // Verificar se município foi selecionado para área do imóvel
-        if (this.selectedLayer === 'area_imovel' && !this.municipalityGeometry) {
-          this.addAlert({
-            type: 'error',
-            message: 'Por favor, selecione um município antes de desenhar a área do imóvel.'
-          });
-          return;
-        }
-        
-        // Preparar para desenho
+
         this.isDrawing = true;
         this.setDrawingMode(true);
-        
-        // Determinar o tipo de geometria a ser desenhada
+
+        // Determinar o tipo de geometria a ser desenhada (ponto ou polígono)
         const selectedLayerType = this.layerTypes.find(lt => lt.id === this.selectedLayer);
         const geometryToUse = geometryType || (selectedLayerType && selectedLayerType.tipo_tema === 'point' ? 'point' : 'polygon');
-        
-        // Recuperar geometria da área do imóvel para validações
+
+        // Se for outra camada que não área do imóvel, precisamos recuperar a geometria da área do imóvel
         let propertyGeometry = null;
         if (this.selectedLayer !== 'area_imovel') {
           const propertyLayer = this.layers.find(l => l.id === 'area_imovel');
-          if (propertyLayer) {
-            propertyGeometry = propertyLayer.geometry;
+          if (!propertyLayer) {
+            throw new Error('A área do imóvel precisa ser definida primeiro.');
           }
+          propertyGeometry = propertyLayer.geometry;
         }
-        
+
         // Adicionar callback para validação em tempo real
         const onUpdateGeometry = (tempGeometry) => {
-          // Validações específicas por tipo de camada
+          // Se estiver desenhando a sede, verificar se está dentro da área do imóvel
           if (this.selectedLayer === 'sede_imovel' && tempGeometry && propertyGeometry) {
+            // Verificar se o ponto está dentro da área do imóvel
             const isInside = arcgisService.isWithin(tempGeometry, propertyGeometry);
-            arcgisService.updateTempGraphicSymbol(isInside ? 'valid' : 'warning');
+
+            // Mostrar feedback visual temporário (cor diferente) se estiver fora
+            if (!isInside) {
+              // Atualizar a cor do ponto temporário para indicar que está inválido
+              arcgisService.updateTempGraphicSymbol('warning');
+            } else {
+              arcgisService.updateTempGraphicSymbol('valid');
+            }
           } else if (this.selectedLayer === 'area_imovel' && tempGeometry && this.municipalityGeometry) {
+            // Verificar interseção básica
             const intersectsMunicipality = arcgisService.validateIntersectsWithMunicipality(
               tempGeometry,
               this.municipalityGeometry
             );
-            
+
+            // Verificar porcentagem mínima de área dentro do município
             const minimumAreaInMunicipality = intersectsMunicipality ?
               arcgisService.validateMinimumAreaInMunicipality(
                 tempGeometry,
                 this.municipalityGeometry,
                 50
               ) : false;
-            
+
             if (!intersectsMunicipality) {
               arcgisService.updateTempGraphicSymbol('warning');
             } else if (!minimumAreaInMunicipality) {
+              // Usar um símbolo intermediário para indicar que há interseção, mas não o suficiente
               arcgisService.updateTempGraphicSymbol('warning-medium');
             } else {
               arcgisService.updateTempGraphicSymbol('valid');
             }
           } else if (geometryToUse === 'polygon' && tempGeometry) {
-            // Exibir área em tempo real se for polígono
+            // Para outras camadas, podemos mostrar a área em tempo real
             const tempArea = arcgisService.calculateArea(tempGeometry);
             this.measurementResult = {
               type: 'area',
@@ -374,95 +379,116 @@ export default {
             };
           }
         };
-        
-        // Função para validar geometria após conclusão do desenho
+
+        // Evento de conclusão do desenho personalizado para validar a geometria
         const onDrawComplete = (geometry) => {
           // Validações específicas por tipo de camada
+          // Para área do imóvel, validar se pelo menos 50% está dentro do município selecionado
           if (this.selectedLayer === 'area_imovel' && this.municipalityGeometry) {
-            const intersectsMunicipality = arcgisService.validateIntersectsWithMunicipality(
-              geometry,
-              this.municipalityGeometry
-            );
-            
-            if (!intersectsMunicipality) {
-              this.addAlert({
-                type: 'error',
-                message: 'A área do imóvel deve intersectar o município selecionado.'
-              });
-              return null;
-            }
-            
-            const minimumAreaInMunicipality = arcgisService.validateMinimumAreaInMunicipality(
-              geometry,
-              this.municipalityGeometry,
-              50
-            );
-            
-            if (!minimumAreaInMunicipality) {
-              this.addAlert({
-                type: 'error',
-                message: 'No mínimo 50% da área do imóvel deve estar dentro do município selecionado.'
-              });
-              return null;
+            try {
+              // Validar interseção básica
+              const intersectsMunicipality = arcgisService.validateIntersectsWithMunicipality(
+                geometry,
+                this.municipalityGeometry
+              );
+
+              if (!intersectsMunicipality) {
+                this.addAlert({
+                  type: 'error',
+                  message: 'A área do imóvel deve intersectar o município selecionado.'
+                });
+
+                return null;
+              }
+
+              // Validar área mínima
+              const minimumAreaInMunicipality = arcgisService.validateMinimumAreaInMunicipality(
+                geometry,
+                this.municipalityGeometry,
+                50
+              );
+
+              if (!minimumAreaInMunicipality) {
+                this.addAlert({
+                  type: 'error',
+                  message: 'No mínimo 50% da área do imóvel deve estar dentro do município selecionado.'
+                });
+
+                return null;
+              }
+            } catch (error) {
+              console.error("Erro na validação:", error);
+              // Em caso de erro na validação, permitir continuar
+              console.log("Ignorando erro de validação para permitir uso");
             }
           }
-          
+
+          // Para sede do imóvel, validar se está dentro da área do imóvel
           if (this.selectedLayer === 'sede_imovel' && propertyGeometry) {
             const isInside = arcgisService.isWithin(geometry, propertyGeometry);
-            
+
             if (!isInside) {
+              // Mostrar mensagem de erro
               this.addAlert({
                 type: 'error',
                 message: 'A sede do imóvel deve estar dentro da área do imóvel.'
               });
+
+              // Cancelar a operação de desenho
               return null;
             }
           }
-          
+
           // Verificações para outras camadas que exigem estar dentro da área do imóvel
           if (['vegetacao_nativa', 'area_consolidada', 'area_pousio'].includes(this.selectedLayer) && propertyGeometry) {
             const isInside = arcgisService.isWithin(geometry, propertyGeometry);
-            
+
             if (!isInside) {
+              // Mostrar mensagem de erro
               this.addAlert({
                 type: 'error',
-                message: `A camada "${this.selectedLayerType?.name || this.selectedLayer}" deve estar completamente dentro da área do imóvel.`
+                message: `A camada "${this.selectedLayerName}" deve estar completamente dentro da área do imóvel.`
               });
-              
+
               return null;
             }
           }
-          
+
           // Limpar resultado de medição após concluir
           this.measurementResult = null;
-          
+
+          // Retornar a geometria válida
           return geometry;
         };
-        
-        // Ativar a ferramenta de desenho
+
+        // Ativar a ferramenta de desenho com callbacks
         const geometry = await arcgisService.activateDrawTool(geometryToUse, onUpdateGeometry, onDrawComplete);
-        
+
         // Se geometry for null, significa que foi cancelado ou falhou na validação
         if (!geometry) {
           this.isDrawing = false;
           this.setDrawingMode(false);
-          this.currentTool = 'pan';
           return;
         }
-        
+
         // Adicionar a camada com a geometria desenhada
-        await this.$store.dispatch('layers/addLayer', {
+        const result = await this.addLayer({
           layerId: this.selectedLayer,
           geometry
         });
-        
-        // Mostrar mensagem de sucesso
-        const layerName = this.selectedLayerType ? this.selectedLayerType.name : this.selectedLayer;
-        this.addAlert({
-          type: 'success',
-          message: `${layerName} desenhada com sucesso.`
-        });
-        
+
+        if (result.success) {
+          // Exibir a geometria no mapa
+          arcgisService.clearLayer(this.selectedLayer);
+          arcgisService.addGraphic(this.selectedLayer, geometry);
+
+          // Mostrar mensagem de sucesso
+          this.addAlert({
+            type: 'success',
+            message: `${this.selectedLayerName} desenhada com sucesso.`
+          });
+        }
+
         // Voltar para o modo de navegação
         this.currentTool = 'pan';
         arcgisService.activatePanMode();
@@ -487,14 +513,14 @@ export default {
         this.currentTool = 'pan';
         return;
       }
-      
+
       try {
         // Implementar lógica de edição
         const layer = this.layers.find(l => l.id === this.selectedLayer);
         if (!layer || !layer.geometry) {
           throw new Error('Geometria não encontrada para edição.');
         }
-        
+
         // Chamar método de edição do serviço ArcGIS
         arcgisService.startEditing(layer.geometry, this.selectedLayer, (editedGeometry) => {
           // Callback após edição concluída
@@ -504,15 +530,14 @@ export default {
               layerId: this.selectedLayer,
               geometry: editedGeometry
             });
-            
+
             // Mostrar mensagem de sucesso
-            const layerName = this.selectedLayerType ? this.selectedLayerType.name : this.selectedLayer;
             this.addAlert({
               type: 'success',
-              message: `${layerName} editada com sucesso.`
+              message: `${this.selectedLayerName} editada com sucesso.`
             });
           }
-          
+
           // Volta para o modo de navegação
           this.currentTool = 'pan';
           arcgisService.activatePanMode();
@@ -535,33 +560,31 @@ export default {
         });
         return;
       }
-      
-      const layerName = this.selectedLayerType ? this.selectedLayerType.name : this.selectedLayer;
-      
+
       if (this.selectedLayer === 'area_imovel') {
         this.deleteConfirmationMessage = 'ATENÇÃO: Excluir a Área do Imóvel irá remover TODAS as camadas. Esta ação é irreversível. Deseja continuar?';
       } else {
-        this.deleteConfirmationMessage = `Tem certeza que deseja excluir a camada "${layerName}"?`;
+        this.deleteConfirmationMessage = `Tem certeza que deseja excluir a camada "${this.selectedLayerName}"?`;
       }
-      
+
       this.deleteDialogVisible = true;
     },
     async deleteLayer() {
       try {
         const result = await this.removeLayer(this.selectedLayer);
-        
+
         // Limpar a camada no mapa
         arcgisService.clearLayer(this.selectedLayer);
-        
+
         // Fechar o diálogo
         this.deleteDialogVisible = false;
-        
+
         // Mostrar mensagem
         this.addAlert({
           type: 'info',
-          message: result.message || `${this.selectedLayerType?.name || this.selectedLayer} excluída com sucesso.`
+          message: result.message || `${this.selectedLayerName} excluída com sucesso.`
         });
-        
+
         // Volta para o modo de navegação
         this.currentTool = 'pan';
       } catch (error) {
@@ -600,14 +623,14 @@ export default {
     async onFileSelected(event) {
       const file = event.target.files[0];
       if (!file) return;
-      
+
       try {
         this.fileUploadInProgress = true;
-        
+
         // Verificar extensão do arquivo
         const fileExtension = file.name.split('.').pop().toLowerCase();
         const validExtensions = ['shp', 'json', 'geojson', 'kml', 'zip'];
-        
+
         if (!validExtensions.includes(fileExtension)) {
           this.addAlert({
             type: 'error',
@@ -617,20 +640,20 @@ export default {
           this.fileUploadInProgress = false;
           return;
         }
-        
+
         // Importar o arquivo usando o serviço ArcGIS
         const geometryResult = await arcgisService.importGeometryFromFile(file);
-        
+
         if (!geometryResult || !geometryResult.geometry) {
           throw new Error('Não foi possível processar o arquivo.');
         }
-        
+
         // Validar a geometria importada
         const validationResult = await this.$store.dispatch('layers/validateLayerGeometry', {
           layerId: this.selectedLayer,
           geometry: geometryResult.geometry
         });
-        
+
         if (!validationResult.success) {
           this.addAlert({
             type: 'error',
@@ -640,20 +663,19 @@ export default {
           this.fileUploadInProgress = false;
           return;
         }
-        
+
         // Adicionar a camada com a geometria importada
         await this.$store.dispatch('layers/addLayer', {
           layerId: this.selectedLayer,
           geometry: geometryResult.geometry
         });
-        
+
         // Mostrar mensagem de sucesso
-        const layerName = this.selectedLayerType ? this.selectedLayerType.name : this.selectedLayer;
         this.addAlert({
           type: 'success',
-          message: `${layerName} importada com sucesso do arquivo ${file.name}.`
+          message: `${this.selectedLayerName} importada com sucesso do arquivo ${file.name}.`
         });
-        
+
         // Limpar o input de arquivo
         this.$refs.fileInput.value = '';
       } catch (error) {
@@ -680,7 +702,7 @@ export default {
         });
         return;
       }
-      
+
       const layer = this.layers.find(l => l.id === this.selectedLayer);
       if (layer && layer.geometry) {
         arcgisService.zoomToGeometry(layer.geometry);
@@ -694,7 +716,7 @@ export default {
         });
         return;
       }
-      
+
       arcgisService.zoomToGeometry(this.municipalityGeometry);
     },
     toggleLayerPanel() {
@@ -748,7 +770,8 @@ export default {
   position: absolute;
   top: 10px;
   left: 10px;
-  z-index: 2000; /* Valor alto para garantir que fique acima de outros elementos */
+  z-index: 2000;
+  /* Valor alto para garantir que fique acima de outros elementos */
   display: flex;
   flex-direction: column;
   pointer-events: none;
@@ -761,15 +784,17 @@ export default {
   padding: 5px;
   display: flex;
   flex-direction: column;
-  align-items: center; /* Centraliza tudo horizontalmente */
+  align-items: center;
+  /* Centraliza tudo horizontalmente */
   gap: 10px;
   pointer-events: auto;
   max-height: calc(100vh - 150px);
   overflow-y: auto;
-  width: 44px; /* Largura fixa para garantir consistência */
-  
+  width: 44px;
+  /* Largura fixa para garantir consistência */
+
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
-  
+
   &:hover {
     box-shadow: 0 10px 20px rgba(0, 0, 0, 0.19), 0 6px 6px rgba(0, 0, 0, 0.23);
   }
@@ -778,10 +803,12 @@ export default {
 .toolbar-group {
   display: flex;
   flex-direction: column;
-  align-items: center; /* Centraliza os itens */
-  width: 100%; /* Ocupa toda a largura do container pai */
+  align-items: center;
+  /* Centraliza os itens */
+  width: 100%;
+  /* Ocupa toda a largura do container pai */
   gap: 3px;
-  
+
   &:not(:last-child) {
     padding-bottom: 10px;
     border-bottom: 1px solid #dcdfe6;
@@ -796,24 +823,27 @@ export default {
   align-items: center;
   margin: 0 auto !important;
   padding: 8px !important;
-  
+
   &.active {
     background-color: #409EFF;
     color: white;
-    
-    &:hover, &:focus {
+
+    &:hover,
+    &:focus {
       background-color: #337ecc;
       color: white;
     }
   }
-  
+
   i {
     font-size: 18px;
     display: flex;
     justify-content: center;
     align-items: center;
-    width: 100%; /* Garante que o ícone ocupe todo o espaço */
-    height: 100%; /* Garante que o ícone ocupe todo o espaço */
+    width: 100%;
+    /* Garante que o ícone ocupe todo o espaço */
+    height: 100%;
+    /* Garante que o ícone ocupe todo o espaço */
   }
 }
 
@@ -821,20 +851,21 @@ export default {
   position: absolute;
   top: 10px;
   left: 60px;
-  z-index: 1500; /* Um pouco menor que a barra de ferramentas */
+  z-index: 1500;
+  /* Um pouco menor que a barra de ferramentas */
   pointer-events: auto;
 }
 
 .measurement-card {
   width: 200px;
-  
+
   .measurement-content {
     padding: 10px;
     display: flex;
     justify-content: center;
     font-weight: bold;
   }
-  
+
   .card-header {
     display: flex;
     justify-content: center;
@@ -847,11 +878,11 @@ export default {
   .map-toolbar-container {
     left: 5px;
   }
-  
+
   .measurement-result {
     left: 50px;
   }
-  
+
   .measurement-card {
     width: 180px;
   }

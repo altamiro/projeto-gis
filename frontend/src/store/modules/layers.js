@@ -166,23 +166,48 @@ export default {
     },
 
     removeLayer({ commit, dispatch, state }, layerId) {
-      if (layerId === "area_imovel") {
-        // Se a camada for "Área do imóvel", remover todas as camadas
-        commit("REMOVE_ALL_LAYERS");
-        return {
-          success: true,
-          message:
-            "Todas as camadas foram removidas pois a Área do imóvel foi excluída.",
+      try {
+        // Primeiro, verifica se é a área do imóvel
+        if (layerId === "area_imovel") {
+          // Limpa todas as camadas no mapa antes de remover do estado
+          state.layers.forEach(layer => {
+            // Use um serviço ou método para limpar cada camada no mapa
+            dispatch('clearLayerGraphics', layer.id, { root: false });
+          });
+          
+          // Remove todas as camadas do estado
+          commit("REMOVE_ALL_LAYERS");
+          
+          // Certifica-se de que não há camada selecionada
+          commit("SET_SELECTED_LAYER", null);
+          
+          return {
+            success: true,
+            message: "Todas as camadas foram removidas pois a Área do imóvel foi excluída."
+          };
+        } else {
+          // Limpa a camada específica no mapa
+          dispatch('clearLayerGraphics', layerId, { root: false });
+          
+          // Remove a camada do estado
+          commit("REMOVE_LAYER", layerId);
+          
+          // Se a camada removida for a selecionada atualmente, limpe a seleção
+          if (state.selectedLayer === layerId) {
+            commit("SET_SELECTED_LAYER", null);
+          }
+          
+          // Recalcular área antropizada após 2008
+          dispatch("property/calculateAnthropizedAfter2008", null, { root: true });
+          
+          return { success: true };
+        }
+      } catch (error) {
+        console.error("Erro ao remover camada:", error);
+        return { 
+          success: false, 
+          message: "Ocorreu um erro ao remover a camada."
         };
-      } else {
-        commit("REMOVE_LAYER", layerId);
-
-        // Recalcular área antropizada após 2008
-        dispatch("property/calculateAnthropizedAfter2008", null, {
-          root: true,
-        });
-
-        return { success: true };
       }
     },
 
@@ -451,6 +476,13 @@ export default {
 
       // Recálculo da área antropizada após as operações de recorte
       dispatch("property/calculateAnthropizedAfter2008", null, { root: true });
+    },
+
+    clearLayerGraphics({ commit }, layerId) {
+      // Use o serviço do ArcGIS para limpar a camada
+      if (window.arcgisService) {
+        window.arcgisService.clearLayer(layerId);
+      }
     },
 
     /**
