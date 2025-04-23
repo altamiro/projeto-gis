@@ -14,8 +14,14 @@
         element-loading-text="Carregando mapa..." 
         element-loading-background="rgba(0, 0, 0, 0.7)"
       )
+
+      // Adicionar a barra de ferramentas
+      map-toolbar(@toggle-layer-panel="toggleSidebar")
       
-      .floating-tools(v-if="mapLoaded && selectedLayer")
+      .floating-tools(
+        v-if="mapLoaded && selectedLayer && showSidebar"
+        :class="{'floating-tools-left': sidebarPosition === 'left', 'floating-tools-right': sidebarPosition === 'right'}"
+      )
         draw-tools
         area-calculator
     
@@ -41,6 +47,7 @@ import LayerSelector from './LayerSelector.vue';
 import DrawTools from './DrawTools.vue';
 import AreaCalculator from './AreaCalculator.vue';
 import ValidationAlert from './ValidationAlert.vue';
+import MapToolbar from './MapToolbar.vue';
 
 export default {
   name: 'MapView',
@@ -49,12 +56,15 @@ export default {
     LayerSelector,
     DrawTools,
     AreaCalculator,
-    ValidationAlert
+    ValidationAlert,
+    MapToolbar
   },
   data() {
     return {
       mapLoaded: false,
-      loadingError: null
+      loadingError: null,
+      showSidebar: true,    // Nova propriedade para controlar a visibilidade da barra lateral
+      sidebarPosition: 'right'  // Posição da barra lateral (right ou left)
     };
   },
   computed: {
@@ -67,12 +77,23 @@ export default {
       municipalitySelected: 'property/hasMunicipalitySelected'
     })
   },
+  methods: {
+    // Método para alternar a visibilidade da barra lateral
+    toggleSidebar(value) {
+      this.showSidebar = value !== undefined ? value : !this.showSidebar;
+    },
+
+    // Método para alternar a posição da barra lateral
+    toggleSidebarPosition() {
+      this.sidebarPosition = this.sidebarPosition === 'right' ? 'left' : 'right';
+    }
+  },
   async mounted() {
     try {
       // Inicializar o mapa
       await arcgisService.initializeMap('mapViewDiv');
       this.mapLoaded = true;
-      
+
       // Adicionar feedback de sucesso
       this.$store.dispatch('validation/addAlert', {
         type: 'info',
@@ -81,7 +102,7 @@ export default {
     } catch (error) {
       console.error('Erro ao inicializar o mapa:', error);
       this.loadingError = error.message || 'Erro desconhecido';
-      
+
       this.$store.dispatch('validation/addAlert', {
         type: 'error',
         message: 'Falha ao carregar o mapa. Por favor, recarregue a página.'
@@ -110,14 +131,14 @@ export default {
   width: 100%;
   padding: 10px 0;
   z-index: $z-index-dropdown + 10;
-  
+
   .header-right {
     display: flex;
     justify-content: flex-end;
     padding-right: 10px;
     margin-bottom: 10px;
   }
-  
+
   .header-center {
     display: flex;
     justify-content: center;
@@ -149,7 +170,7 @@ export default {
 .map-footer {
   width: 100%;
   position: relative;
-  
+
   .map-alerts {
     position: absolute;
     bottom: 40px;
@@ -159,7 +180,7 @@ export default {
     max-width: 600px;
     z-index: $z-index-tooltip;
   }
-  
+
   .map-info {
     width: 100%;
     height: 30px;
@@ -188,6 +209,24 @@ export default {
     .header-right {
       padding-right: 5px;
     }
+  }
+}
+
+.floating-tools {
+  position: absolute;
+  top: 20px;
+  z-index: $z-index-dropdown;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: right 0.3s ease, left 0.3s ease;
+  
+  &.floating-tools-right {
+    right: 10px;
+  }
+  
+  &.floating-tools-left {
+    left: 60px; // Espaço para a barra de ferramentas vertical
   }
 }
 </style>

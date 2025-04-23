@@ -6,6 +6,7 @@ import Polygon from "@arcgis/core/geometry/Polygon";
 import Point from "@arcgis/core/geometry/Point";
 import SpatialReference from "@arcgis/core/geometry/SpatialReference";
 import Draw from "@arcgis/core/views/draw/Draw";
+import Polyline from "@arcgis/core/geometry/Polyline";
 import * as geometryEngine from "@arcgis/core/geometry/geometryEngine";
 import * as projection from "@arcgis/core/geometry/projection";
 import * as intersectionOperator from "@arcgis/core/geometry/operators/intersectionOperator";
@@ -28,6 +29,13 @@ export class ArcGISService {
     this.municipalityLayer = null;
     this.centroidLayer = null;
     this.projectionLoaded = false;
+    this.clickHandler = null; // Nova propriedade para controlar handlers de clique
+    this.Point = Point; // Referência para criar novos pontos
+    this.Polyline = Polyline; // Referência para criar novas linhas
+    this.Polygon = Polygon; // Referência para criar novos polígonos
+    this.GraphicsLayer = GraphicsLayer; // Referência para criar novas camadas
+    this.Graphic = Graphic; // Referência para criar novos gráficos
+    this.geometryEngine = geometryEngine; // Referência para o motor de geometria
   }
 
   initializeMap(container) {
@@ -106,12 +114,13 @@ export class ArcGISService {
   // Método para carregar a projeção antecipadamente
   loadProjection() {
     if (coordinateFormatter.isSupported()) {
-      projection.load()
+      projection
+        .load()
         .then(() => {
           console.log("Módulo de projeção carregado com sucesso");
           this.projectionLoaded = true;
         })
-        .catch(err => {
+        .catch((err) => {
           console.warn("Erro ao carregar módulo de projeção:", err);
           this.projectionLoaded = false;
         });
@@ -149,8 +158,10 @@ export class ArcGISService {
       let finalGeometry = polygonGeometry;
 
       // Reprojetar a geometria do município para o mesmo SR da vista
-      if (this.projectionLoaded && 
-          polygonGeometry.spatialReference.wkid !== viewSR.wkid) {
+      if (
+        this.projectionLoaded &&
+        polygonGeometry.spatialReference.wkid !== viewSR.wkid
+      ) {
         try {
           finalGeometry = projection.project(polygonGeometry, viewSR);
           console.log(
@@ -160,17 +171,20 @@ export class ArcGISService {
             viewSR.wkid
           );
         } catch (e) {
-          console.warn("Erro ao reprojetar município, usando geometria original:", e);
+          console.warn(
+            "Erro ao reprojetar município, usando geometria original:",
+            e
+          );
           finalGeometry = polygonGeometry;
         }
       }
 
       // Exibir a geometria do município
       this.displayMunicipalityGraphic(finalGeometry, municipality);
-      
+
       // Calcular e exibir o centróide
       this.displayCentroid(finalGeometry, municipality);
-      
+
       return finalGeometry;
     } catch (error) {
       console.error("Erro ao exibir município:", error);
@@ -181,24 +195,26 @@ export class ArcGISService {
   // Novo método para calcular e exibir o centróide do município
   displayCentroid(geometry, municipality) {
     if (!geometry || !municipality) {
-      console.error("Geometria ou município inválido para cálculo de centróide");
+      console.error(
+        "Geometria ou município inválido para cálculo de centróide"
+      );
       return;
     }
 
     try {
       // Calcular o centróide da geometria
       const centroid = this.centroid(geometry);
-      
+
       if (!centroid) {
         console.error("Não foi possível calcular o centróide do município");
         return;
       }
-      
+
       console.log("Centróide calculado:", centroid);
-      
+
       // Configurar o URL do ícone
-      const iconUrl = `${process.env.BASE_URL || '/'}img/localizacao.png`;
-      
+      const iconUrl = `${process.env.BASE_URL || "/"}img/localizacao.png`;
+
       // Criar símbolo de imagem para o centróide
       const pictureSymbol = {
         type: "picture-marker",
@@ -207,22 +223,22 @@ export class ArcGISService {
         height: 32,
         // Ajustar o deslocamento para que o ponto de ancoragem seja o centro da imagem
         xoffset: 0,
-        yoffset: 16 // Deslocamento vertical para que a parte inferior do ícone aponte para o local exato
+        yoffset: 16, // Deslocamento vertical para que a parte inferior do ícone aponte para o local exato
       };
-      
+
       // Criar gráfico para o centróide
       const centroidGraphic = new Graphic({
         geometry: centroid,
         symbol: pictureSymbol,
         attributes: {
           id: `centroid-${municipality.id}`,
-          name: `Centróide de ${municipality.name}`
-        }
+          name: `Centróide de ${municipality.name}`,
+        },
       });
-      
+
       // Adicionar à camada de centróide
       this.centroidLayer.add(centroidGraphic);
-      
+
       console.log("Centróide adicionado ao mapa");
     } catch (error) {
       console.error("Erro ao exibir centróide:", error);
@@ -836,6 +852,433 @@ export class ArcGISService {
     if (this.view) {
       this.view.destroy();
     }
+  }
+
+  /**
+   * Ativa o modo de navegação (pan)
+   */
+  activatePanMode() {
+    // Resetar qualquer ferramenta de desenho ativa
+    if (this.drawTool) {
+      this.drawTool.reset();
+    }
+
+    // Limpar qualquer handler de eventos específico
+    if (this.clickHandler) {
+      this.clickHandler.remove();
+      this.clickHandler = null;
+    }
+
+    // Limpar qualquer ferramenta de medição ativa
+    this.deactivateMeasurementTool();
+
+    // Limpar camadas temporárias
+    this.clearLayer("temp");
+
+    // Garantir que a visualização esteja em um estado de navegação padrão
+    // Em vez de definir propriedades específicas, apenas garantimos que
+    // nenhuma ferramenta de interação esteja ativa
+    if (this.view) {
+      // Se a visualização tiver um modo de navegação explícito, use-o
+      if (typeof this.view.navigateStart === "function") {
+        this.view.navigateStart();
+      } else if (typeof this.view.inputManager?.standardStart === "function") {
+        // Alguns controles de navegação foram movidos para o inputManager
+        this.view.inputManager.standardStart();
+      }
+    }
+  }
+
+  /**
+   * Cancela a operação de desenho atual
+   */
+  cancelDrawing() {
+    if (this.drawTool) {
+      this.drawTool.reset();
+    }
+    this.clearLayer("temp");
+  }
+
+  /**
+   * Inicia a edição de uma geometria existente
+   * @param {Object} geometry - Geometria a ser editada
+   * @param {String} layerId - ID da camada
+   * @param {Function} callback - Função de retorno após edição
+   */
+  startEditing(geometry, layerId, callback) {
+    // Verificar se a geometria está disponível
+    if (!geometry) {
+      throw new Error("Geometria não disponível para edição");
+    }
+
+    // Limpar qualquer desenho ativo
+    this.drawTool.reset();
+
+    // Limpar a camada temporária
+    this.clearLayer("temp");
+
+    // Criar uma cópia da geometria para edição
+    const editableGeometry = geometry.clone();
+
+    // Adicionar a geometria à camada temporária com aparência diferente (modo de edição)
+    const editSymbol = {
+      type: geometry.type === "point" ? "simple-marker" : "simple-fill",
+      color: [255, 165, 0, 0.5], // Laranja transparente
+      outline: {
+        color: [255, 165, 0, 1],
+        width: 2,
+        style: "dash",
+      },
+    };
+
+    // Adicionar a geometria à camada temporária
+    this.addGraphic("temp", editableGeometry, editSymbol);
+
+    // Centralizar na geometria
+    this.zoomToGeometry(editableGeometry);
+
+    // Determinar o tipo de edição com base no tipo de geometria
+    const editType = editableGeometry.type === "point" ? "point" : "reshape";
+
+    // Iniciar a edição
+    this._startEditSession(editableGeometry, editType, (editedGeometry) => {
+      // Limpar a camada temporária
+      this.clearLayer("temp");
+
+      // Se a geometria foi editada com sucesso, chamar o callback
+      if (editedGeometry) {
+        callback(editedGeometry);
+      } else {
+        callback(null);
+      }
+    });
+  }
+
+  /**
+   * Inicia uma sessão de edição com a geometria fornecida
+   * @param {Object} geometry - Geometria a ser editada
+   * @param {String} editType - Tipo de edição ('point', 'reshape', etc.)
+   * @param {Function} callback - Função a ser chamada após conclusão
+   * @private
+   */
+  _startEditSession(geometry, editType, callback) {
+    // Implementação simplificada - na prática, isso usaria os widgets de edição do ArcGIS
+    // que não estão completamente disponíveis no ambiente atual
+
+    if (editType === "point") {
+      // Para pontos, permitir mover o ponto para uma nova localização
+      this.clickHandler = this.view.on("click", (event) => {
+        // Criar um novo ponto na localização do clique
+        const newPoint = {
+          type: "point",
+          x: event.mapPoint.x,
+          y: event.mapPoint.y,
+          spatialReference: this.view.spatialReference,
+        };
+
+        // Limpar o handler de clique
+        this.clickHandler.remove();
+        this.clickHandler = null;
+
+        // Chamar o callback com o novo ponto
+        callback(newPoint);
+      });
+    } else {
+      // Para polígonos, usar a ferramenta de redesenho
+      const action = this.drawTool.reshape(geometry);
+
+      action.on("reshape-complete", (event) => {
+        // Chamar o callback com a geometria redesenhada
+        callback(event.geometry);
+      });
+    }
+  }
+
+  /**
+   * Para a edição atual
+   */
+  stopEditing() {
+    // Resetar a ferramenta de desenho
+    if (this.drawTool) {
+      this.drawTool.reset();
+    }
+
+    // Remover handler de clique
+    if (this.clickHandler) {
+      this.clickHandler.remove();
+      this.clickHandler = null;
+    }
+
+    // Limpar camada temporária
+    this.clearLayer("temp");
+  }
+
+  /**
+   * Ativa a ferramenta de medição
+   * @param {Function} callback - Função de retorno para o resultado da medição
+   */
+  activateMeasurementTool(callback) {
+    // Resetar qualquer ferramenta ativa
+    if (this.drawTool) {
+      this.drawTool.reset();
+    }
+
+    // Limpar camada temporária
+    this.clearLayer("temp");
+
+    // Inicializar a camada de medição, se necessário
+    if (!this.layers["measurement"]) {
+      const measurementLayer = new this.GraphicsLayer({
+        id: "measurement",
+      });
+      this.map.add(measurementLayer);
+      this.layers["measurement"] = measurementLayer;
+    } else {
+      this.layers["measurement"].removeAll();
+    }
+
+    // Iniciar a ferramenta de desenho para medição de distância (linha)
+    const action = this.drawTool.create("polyline");
+
+    // Adicionar evento de atualização para mostrar medição em tempo real
+    action.on(
+      ["vertex-add", "vertex-remove", "cursor-update", "redo", "undo"],
+      (event) => {
+        // Limpar gráficos temporários anteriores
+        this.layers["measurement"].removeAll();
+
+        // Se temos vértices, criar uma linha temporária
+        if (event.vertices && event.vertices.length > 0) {
+          const tempLine = new this.Polyline({
+            paths: [event.vertices],
+            spatialReference: this.view.spatialReference,
+          });
+
+          // Calcular comprimento da linha em metros
+          const length = this.geometryEngine.geodesicLength(tempLine, "meters");
+
+          // Adicionar linha ao mapa
+          const lineSymbol = {
+            type: "simple-line",
+            color: [0, 0, 255, 1],
+            width: 2,
+            style: "solid",
+          };
+
+          // Adicionar a linha à camada de medição
+          this.layers["measurement"].add(
+            new this.Graphic({
+              geometry: tempLine,
+              symbol: lineSymbol,
+            })
+          );
+
+          // Chamar o callback com o resultado
+          callback({
+            type: "distance",
+            value: length,
+          });
+        }
+      }
+    );
+
+    // Evento para conclusão do desenho
+    action.on("draw-complete", (event) => {
+      // Criar linha a partir dos vértices
+      const line = new this.Polyline({
+        paths: [event.vertices],
+        spatialReference: this.view.spatialReference,
+      });
+
+      // Calcular distância final
+      const finalLength = this.geometryEngine.geodesicLength(line, "meters");
+
+      // Chamar o callback com o resultado final
+      callback({
+        type: "distance",
+        value: finalLength,
+      });
+
+      // Manter a linha no mapa
+      const lineSymbol = {
+        type: "simple-line",
+        color: [0, 0, 255, 1],
+        width: 3,
+        style: "solid",
+      };
+
+      this.layers["measurement"].add(
+        new this.Graphic({
+          geometry: line,
+          symbol: lineSymbol,
+        })
+      );
+
+      // Retornar ao modo de medição para permitir várias medições
+      setTimeout(() => {
+        this.activateMeasurementTool(callback);
+      }, 100);
+    });
+  }
+
+  /**
+   * Desativa a ferramenta de medição
+   */
+  deactivateMeasurementTool() {
+    // Resetar a ferramenta de desenho
+    if (this.drawTool) {
+      this.drawTool.reset();
+    }
+
+    // Limpar a camada de medição
+    if (this.layers["measurement"]) {
+      this.layers["measurement"].removeAll();
+    }
+  }
+
+  /**
+   * Importa geometria de um arquivo
+   * @param {File} file - Arquivo a ser importado (GeoJSON, Shapefile, etc.)
+   * @returns {Promise} Promessa com a geometria importada
+   */
+  async importGeometryFromFile(file) {
+    return new Promise((resolve, reject) => {
+      try {
+        // Esta é uma implementação simplificada. Na realidade, seria necessário:
+        // 1. Para GeoJSON: Ler o arquivo como texto e parsear
+        // 2. Para Shapefile: Usar uma biblioteca como shpjs
+        // 3. Para KML: Usar um parser de KML
+
+        // Aqui vamos implementar apenas para GeoJSON por simplicidade
+        if (
+          file.name.toLowerCase().endsWith(".json") ||
+          file.name.toLowerCase().endsWith(".geojson")
+        ) {
+          const reader = new FileReader();
+
+          reader.onload = (event) => {
+            try {
+              const geojson = JSON.parse(event.target.result);
+
+              // Verificar se é um GeoJSON válido
+              if (!geojson.type || !geojson.features) {
+                reject(new Error("Arquivo GeoJSON inválido."));
+                return;
+              }
+
+              // Extrair a primeira feature
+              const feature = geojson.features[0];
+
+              if (!feature || !feature.geometry) {
+                reject(new Error("Nenhuma geometria encontrada no GeoJSON."));
+                return;
+              }
+
+              // Converter para geometria ArcGIS
+              let geometry;
+
+              switch (feature.geometry.type) {
+                case "Point":
+                  geometry = new this.Point({
+                    x: feature.geometry.coordinates[0],
+                    y: feature.geometry.coordinates[1],
+                    spatialReference: { wkid: 4326 }, // GeoJSON usa WGS84
+                  });
+                  break;
+                case "LineString":
+                  geometry = new this.Polyline({
+                    paths: [feature.geometry.coordinates],
+                    spatialReference: { wkid: 4326 },
+                  });
+                  break;
+                case "Polygon":
+                  geometry = new this.Polygon({
+                    rings: feature.geometry.coordinates,
+                    spatialReference: { wkid: 4326 },
+                  });
+                  break;
+                default:
+                  reject(
+                    new Error(
+                      `Tipo de geometria não suportado: ${feature.geometry.type}`
+                    )
+                  );
+                  return;
+              }
+
+              // Reprojetar para o sistema de referência da visualização
+              if (
+                this.projectionLoaded &&
+                geometry.spatialReference.wkid !==
+                  this.view.spatialReference.wkid
+              ) {
+                geometry = this.projection.project(
+                  geometry,
+                  this.view.spatialReference
+                );
+              }
+
+              resolve({ geometry, properties: feature.properties || {} });
+            } catch (error) {
+              reject(new Error(`Erro ao processar GeoJSON: ${error.message}`));
+            }
+          };
+
+          reader.onerror = () => {
+            reject(new Error("Erro ao ler o arquivo."));
+          };
+
+          reader.readAsText(file);
+        } else {
+          reject(
+            new Error(
+              "Formato de arquivo não suportado nesta implementação simplificada."
+            )
+          );
+        }
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  /**
+   * Aplica zoom de aproximação
+   */
+  zoomIn() {
+    if (this.view) {
+      const currentZoom = this.view.zoom;
+      this.view.goTo({ zoom: currentZoom + 1 });
+    }
+  }
+
+  /**
+   * Aplica zoom de afastamento
+   */
+  zoomOut() {
+    if (this.view) {
+      const currentZoom = this.view.zoom;
+      this.view.goTo({ zoom: currentZoom - 1 });
+    }
+  }
+
+  /**
+   * Aplica zoom para uma geometria específica
+   * @param {Object} geometry - Geometria para aplicar zoom
+   */
+  zoomToGeometry(geometry) {
+    if (!geometry || !this.view) return;
+
+    this.view.goTo(
+      {
+        target: geometry,
+        scale: geometry.type === "point" ? 5000 : undefined,
+      },
+      {
+        duration: 500,
+        easing: "ease-in-out",
+      }
+    );
   }
 }
 
