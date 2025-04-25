@@ -10,6 +10,26 @@ import './assets/styles/global.scss'; // Importando os estilos globais
 Vue.use(ElementUI, { locale });
 Vue.config.productionTip = false;
 
+
+// Adicionar estilo para o popup do centroide
+const style = document.createElement('style');
+style.textContent = `
+  /* Estilo para o popup do centroide */
+  .esri-popup--centroid .esri-popup__main-container {
+    max-width: 200px;
+  }
+  
+  .esri-popup--centroid .esri-popup__header {
+    background-color: #409EFF;
+  }
+  
+  .esri-popup--centroid .esri-popup__header-title {
+    font-weight: bold;
+    color: white;
+  }
+`;
+document.head.appendChild(style);
+
 new Vue({
   router,
   store,

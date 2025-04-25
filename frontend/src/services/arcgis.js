@@ -68,7 +68,64 @@ export class ArcGISService {
       navigation: {
         browserTouchPanEnabled: true,
       },
+      // Configuração do popup
+      popup: {
+        dockEnabled: false,
+        dockOptions: {
+          position: "top-right",
+          breakpoint: false,
+        },
+        actions: [],
+        autoOpenEnabled: false, // Não abrir automaticamente ao clicar, apenas no hover
+        defaultPopupTemplateEnabled: true,
+      },
     });
+
+    const style = document.createElement("style");
+    style.textContent = `
+  /* Estilo personalizado para o popup do centroide */
+  .esri-popup__main-container {
+    max-width: 200px !important;
+  }
+  
+  .esri-popup__header {
+    background-color: #409EFF;
+  }
+  
+  .esri-popup__header-title {
+    font-weight: bold;
+    color: white;
+  }
+  
+  /* Estilo para o tooltip personalizado */
+  .municipality-tooltip {
+    position: absolute;
+    background-color: white;
+    border: 1px solid #dcdfe6;
+    border-radius: 4px;
+    padding: 5px 10px;
+    font-size: 14px;
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.3s;
+    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  }
+
+  .municipality-tooltip.visible {
+    opacity: 1;
+  }
+`;
+    document.head.appendChild(style);
+
+    // Criar o elemento do tooltip personalizado (alternativa ao popup)
+    const tooltip = document.createElement("div");
+    tooltip.className = "municipality-tooltip";
+    tooltip.style.display = "none";
+    document.body.appendChild(tooltip);
+
+    // Armazenar uma referência ao tooltip
+    this.tooltip = tooltip;
 
     // Inicializar camada de município
     this.municipalityLayer = new GraphicsLayer({
@@ -107,6 +164,9 @@ export class ArcGISService {
     this.drawTool = new Draw({
       view: this.view,
     });
+
+    // Inicializar o tooltip customizado
+    this.initTooltip();
 
     return this.view.when();
   }
@@ -192,7 +252,6 @@ export class ArcGISService {
     }
   }
 
-  // Novo método para calcular e exibir o centróide do município
   displayCentroid(geometry, municipality) {
     if (!geometry || !municipality) {
       console.error(
@@ -212,9 +271,6 @@ export class ArcGISService {
 
       console.log("Centróide calculado:", centroid);
 
-      // Configurar o URL do ícone
-      const iconUrl = `${process.env.BASE_URL || "/"}img/localizacao.png`;
-
       // Criar símbolo de imagem para o centróide
       const pictureSymbol = {
         type: "picture-marker",
@@ -226,20 +282,114 @@ export class ArcGISService {
         yoffset: 16, // Deslocamento vertical para que a parte inferior do ícone aponte para o local exato
       };
 
+      // Criar atributos para o centróide
+      const attributes = {
+        id: `centroid-${municipality.id}`,
+        name: municipality.name,
+        description: `Centróide de ${municipality.name}`,
+      };
+
+      // Criar popup template para mostrar informações ao passar o mouse
+      const popupTemplate = {
+        title: "{name}",
+        content: "{description}",
+        overwriteActions: true,
+      };
+
       // Criar gráfico para o centróide
       const centroidGraphic = new Graphic({
         geometry: centroid,
         symbol: pictureSymbol,
-        attributes: {
-          id: `centroid-${municipality.id}`,
-          name: `Centróide de ${municipality.name}`,
-        },
+        attributes: attributes,
+        popupTemplate: popupTemplate,
       });
 
       // Adicionar à camada de centróide
       this.centroidLayer.add(centroidGraphic);
 
-      console.log("Centróide adicionado ao mapa");
+      // Configurar comportamento de hover para o centróide
+      if (this.view) {
+        // Implementação do tooltip customizado
+        this.view.on("pointer-move", (event) => {
+          // Usar hitTest para verificar se o mouse está sobre o centróide
+          this.view.hitTest(event).then((response) => {
+            // Verificar se o mouse está sobre o centróide
+            const centroidHit = response.results.find(
+              (result) =>
+                result.graphic &&
+                result.graphic.attributes &&
+                result.graphic.attributes.id &&
+                result.graphic.attributes.id.startsWith("centroid-")
+            );
+
+            if (centroidHit) {
+              // Verificar se o tooltip customizado está disponível
+              if (this.tooltip) {
+                const tooltipText = municipality.name;
+
+                // Posicionar e mostrar o tooltip
+                this.tooltip.textContent = tooltipText;
+                this.tooltip.style.display = "block";
+                this.tooltip.style.left = `${event.x + 10}px`;
+                this.tooltip.style.top = `${event.y + 10}px`;
+                this.tooltip.classList.add("visible");
+              } else {
+                // Fallback para o popup padrão se o tooltip não estiver disponível
+                this.view.popup.open({
+                  features: [centroidHit.graphic],
+                  location: centroid,
+                });
+              }
+            } else {
+              // Esconder o tooltip se não estiver sobre o centróide
+              if (this.tooltip && this.tooltip.classList.contains("visible")) {
+                this.tooltip.classList.remove("visible");
+                setTimeout(() => {
+                  if (!this.tooltip.classList.contains("visible")) {
+                    this.tooltip.style.display = "none";
+                  }
+                }, 300);
+              }
+
+              // Fechar o popup se estiver usando o popup padrão
+              if (
+                this.view.popup.visible &&
+                this.view.popup.selectedFeature &&
+                this.view.popup.selectedFeature.attributes &&
+                this.view.popup.selectedFeature.attributes.id &&
+                this.view.popup.selectedFeature.attributes.id.startsWith(
+                  "centroid-"
+                )
+              ) {
+                this.view.popup.close();
+              }
+            }
+          });
+        });
+
+        // Adicionar evento para dispositivos touch
+        this.view.on("click", (event) => {
+          this.view.hitTest(event).then((response) => {
+            const centroidHit = response.results.find(
+              (result) =>
+                result.graphic &&
+                result.graphic.attributes &&
+                result.graphic.attributes.id &&
+                result.graphic.attributes.id.startsWith("centroid-")
+            );
+
+            if (centroidHit) {
+              // Mostrar o popup ao clicar (para dispositivos móveis)
+              this.view.popup.open({
+                features: [centroidHit.graphic],
+                location: centroid,
+              });
+            }
+          });
+        });
+      }
+
+      console.log("Centróide adicionado ao mapa com tooltip");
     } catch (error) {
       console.error("Erro ao exibir centróide:", error);
     }
@@ -852,6 +1002,11 @@ export class ArcGISService {
     if (this.view) {
       this.view.destroy();
     }
+
+    if (this.tooltip && this.tooltip.parentNode) {
+      this.tooltip.parentNode.removeChild(this.tooltip);
+      this.tooltip = null;
+    }
   }
 
   /**
@@ -1279,6 +1434,89 @@ export class ArcGISService {
         easing: "ease-in-out",
       }
     );
+  }
+
+  showCustomTooltip(event, text) {
+    const tooltip = this.tooltip;
+    if (!tooltip) return;
+
+    tooltip.textContent = text;
+    tooltip.style.display = "block";
+    tooltip.style.left = `${event.x + 10}px`;
+    tooltip.style.top = `${event.y + 10}px`;
+    tooltip.classList.add("visible");
+  }
+
+  // Método para esconder o tooltip customizado
+  hideCustomTooltip() {
+    const tooltip = this.tooltip;
+    if (!tooltip) return;
+
+    tooltip.classList.remove("visible");
+    setTimeout(() => {
+      if (!tooltip.classList.contains("visible")) {
+        tooltip.style.display = "none";
+      }
+    }, 300);
+  }
+
+  initTooltip() {
+    // Adicionar CSS personalizado para estilizar o tooltip
+    const style = document.createElement("style");
+    style.textContent = `
+      /* Estilo para o tooltip personalizado */
+      .municipality-tooltip {
+        position: absolute;
+        background-color: white;
+        border: 1px solid #dcdfe6;
+        border-radius: 4px;
+        padding: 5px 10px;
+        font-size: 14px;
+        font-weight: bold;
+        color: #409EFF;
+        pointer-events: none;
+        z-index: 1000;
+        opacity: 0;
+        transition: opacity 0.2s;
+        box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+      }
+  
+      .municipality-tooltip.visible {
+        opacity: 1;
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Criar o elemento do tooltip personalizado
+    const tooltip = document.createElement("div");
+    tooltip.className = "municipality-tooltip";
+    tooltip.style.display = "none";
+    document.body.appendChild(tooltip);
+
+    // Armazenar uma referência ao tooltip
+    this.tooltip = tooltip;
+  }
+
+  // Métodos auxiliares para gerenciar o tooltip
+  showTooltip(event, text) {
+    if (!this.tooltip) return;
+
+    this.tooltip.textContent = text;
+    this.tooltip.style.display = "block";
+    this.tooltip.style.left = `${event.x + 15}px`;
+    this.tooltip.style.top = `${event.y + 15}px`;
+    this.tooltip.classList.add("visible");
+  }
+
+  hideTooltip() {
+    if (!this.tooltip) return;
+
+    this.tooltip.classList.remove("visible");
+    setTimeout(() => {
+      if (!this.tooltip.classList.contains("visible")) {
+        this.tooltip.style.display = "none";
+      }
+    }, 200);
   }
 }
 
