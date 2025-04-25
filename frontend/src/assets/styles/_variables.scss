@@ -64,3 +64,116 @@ $transition-slow: all 0.5s ease-in-out;
 $z-index-dropdown: 1000;
 $z-index-modal: 1050;
 $z-index-tooltip: 1100;
+
+
+// Variáveis de cores para ferramentas de edição
+$edit-color: #ff9800;       // Laranja para edição
+$cut-color: #f56c6c;        // Vermelho para recorte
+$warning-color: #e6a23c;    // Amarelo para avisos
+
+// Estilos para os botões de ferramentas
+.el-button {
+  &.active {
+    background-color: #409EFF;
+    color: white;
+
+    &:hover,
+    &:focus {
+      background-color: #337ecc;
+      color: white;
+    }
+  }
+}
+
+// Estilos para a ferramenta de recorte
+.cut-instructions-card {
+  background-color: rgba(255, 255, 255, 0.95);
+  border: 2px solid $cut-color;
+  max-width: 300px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  
+  .card-header {
+    color: $cut-color;
+    font-weight: bold;
+  }
+  
+  .instructions-content {
+    padding: 10px;
+    font-size: 14px;
+    line-height: 1.5;
+    
+    p {
+      margin-bottom: 8px;
+    }
+  }
+}
+
+// Estilos para o diálogo de confirmação de recorte
+.cut-info {
+  margin-bottom: 15px;
+  
+  p {
+    margin-bottom: 8px;
+    line-height: 1.5;
+  }
+}
+
+.cut-options {
+  margin-top: 15px;
+  margin-bottom: 15px;
+  
+  .el-radio {
+    display: block;
+    margin-bottom: 10px;
+    font-size: 14px;
+  }
+}
+
+// Estilos para tooltip customizado
+.custom-tooltip {
+  position: absolute;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  z-index: 3000;
+  pointer-events: none;
+  max-width: 300px;
+  transition: opacity 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  
+  &.hidden {
+    opacity: 0;
+  }
+}
+
+// Modificadores para os ícones dos botões
+.el-icon-scissors {
+  transform: rotate(90deg);
+}
+
+// Estilos para polígonos em edição
+.edit-polygon {
+  cursor: move;
+  
+  .vertex {
+    cursor: pointer;
+    
+    &:hover {
+      fill: $edit-color;
+    }
+  }
+}
+
+// Media queries para responsividade
+@media (max-width: 768px) {
+  .cut-instructions {
+    width: 260px;
+    left: 50px;
+  }
+  
+  .cut-instructions-card {
+    font-size: 13px;
+  }
+}

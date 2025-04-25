@@ -758,16 +758,38 @@ export class ArcGISService {
     return geometryEngine.intersects(geometry1, geometry2);
   }
 
+  /**
+   * Calcula a interseção entre duas geometrias
+   * @param {Object} geometry1 - Primeira geometria
+   * @param {Object} geometry2 - Segunda geometria
+   * @returns {Object} Geometria da interseção
+   */
   intersection(geometry1, geometry2) {
-    return intersectionOperator.execute(geometry1, geometry2);
+    try {
+      return intersectionOperator.execute(geometry1, geometry2);
+    } catch (error) {
+      console.error("Erro ao calcular interseção:", error);
+      return null;
+    }
   }
 
   contains(geometry1, geometry2) {
     return containsOperator.execute(geometry1, geometry2);
   }
 
+  /**
+   * Calcula a diferença entre duas geometrias (subtração)
+   * @param {Object} geometry1 - Geometria original
+   * @param {Object} geometry2 - Geometria a ser subtraída
+   * @returns {Object} Geometria resultante após subtração
+   */
   difference(geometry1, geometry2) {
-    return geometryEngine.difference(geometry1, geometry2);
+    try {
+      return this.geometryEngine.difference(geometry1, geometry2);
+    } catch (error) {
+      console.error("Erro ao calcular diferença:", error);
+      return null;
+    }
   }
 
   project(geometry, targetSpatialReference) {
@@ -1067,7 +1089,9 @@ export class ArcGISService {
     }
 
     // Limpar qualquer desenho ativo
-    this.drawTool.reset();
+    if (this.drawTool) {
+      this.drawTool.reset();
+    }
 
     // Limpar a camada temporária
     this.clearLayer("temp");
@@ -1075,15 +1099,20 @@ export class ArcGISService {
     // Criar uma cópia da geometria para edição
     const editableGeometry = geometry.clone();
 
+    // Determinar o tipo de geometria
+    const isPoint = geometry.type === "point";
+
     // Adicionar a geometria à camada temporária com aparência diferente (modo de edição)
     const editSymbol = {
-      type: geometry.type === "point" ? "simple-marker" : "simple-fill",
+      type: isPoint ? "simple-marker" : "simple-fill",
       color: [255, 165, 0, 0.5], // Laranja transparente
       outline: {
         color: [255, 165, 0, 1],
         width: 2,
         style: "dash",
       },
+      // Adiciona tamanho maior para pontos
+      ...(isPoint && { size: "14px" }),
     };
 
     // Adicionar a geometria à camada temporária
@@ -1092,21 +1121,12 @@ export class ArcGISService {
     // Centralizar na geometria
     this.zoomToGeometry(editableGeometry);
 
-    // Determinar o tipo de edição com base no tipo de geometria
-    const editType = editableGeometry.type === "point" ? "point" : "reshape";
-
-    // Iniciar a edição
-    this._startEditSession(editableGeometry, editType, (editedGeometry) => {
-      // Limpar a camada temporária
-      this.clearLayer("temp");
-
-      // Se a geometria foi editada com sucesso, chamar o callback
-      if (editedGeometry) {
-        callback(editedGeometry);
-      } else {
-        callback(null);
-      }
-    });
+    // Iniciar a edição apropriada com base no tipo de geometria
+    if (isPoint) {
+      this._startPointEditing(editableGeometry, layerId, callback);
+    } else {
+      this._startPolygonEditing(editableGeometry, layerId, callback);
+    }
   }
 
   /**
@@ -1166,6 +1186,9 @@ export class ArcGISService {
 
     // Limpar camada temporária
     this.clearLayer("temp");
+
+    // Esconder tooltip
+    this.hideTooltip();
   }
 
   /**
@@ -1517,6 +1540,170 @@ export class ArcGISService {
         this.tooltip.style.display = "none";
       }
     }, 200);
+  }
+
+  /**
+   * Inicia a edição de um ponto
+   * @param {Object} pointGeometry - Geometria do ponto
+   * @param {String} layerId - ID da camada
+   * @param {Function} callback - Função de retorno após edição
+   * @private
+   */
+  _startPointEditing(pointGeometry, layerId, callback) {
+    // Salvar o handler para remover depois
+    this.clickHandler = this.view.on("click", (event) => {
+      // Obter o ponto do clique
+      const point = event.mapPoint;
+
+      // Limpar a camada temporária
+      this.clearLayer("temp");
+
+      // Remover o handler
+      this.clickHandler.remove();
+      this.clickHandler = null;
+
+      // Criar um novo ponto
+      const newPoint = new this.Point({
+        x: point.x,
+        y: point.y,
+        spatialReference: this.view.spatialReference,
+      });
+
+      // Chamar o callback com o novo ponto
+      callback(newPoint);
+    });
+
+    // Mostrar instrução ao usuário
+    this.showTooltip(
+      {
+        x: this.view.width / 2,
+        y: 100,
+      },
+      "Clique em um novo local para reposicionar o ponto"
+    );
+  }
+
+  /**
+   * Inicia a edição de um polígono usando a API de reshape
+   * @param {Object} polygonGeometry - Geometria do polígono
+   * @param {String} layerId - ID da camada
+   * @param {Function} callback - Função de retorno após edição
+   * @private
+   */
+  _startPolygonEditing(polygonGeometry, layerId, callback) {
+    try {
+      // Usar a API de reshape para editar o polígono
+      const action = this.drawTool.reshape(polygonGeometry);
+
+      // Configurar o estilo de visualização
+      this.updateTempGraphicSymbol("default");
+
+      // Adicionar instruções de uso
+      this.showTooltip(
+        {
+          x: this.view.width / 2,
+          y: 100,
+        },
+        "Arraste os vértices para modificar o polígono. Clique duplo para finalizar."
+      );
+
+      // Eventos para atualização em tempo real durante a edição
+      action.on(
+        ["vertex-add", "vertex-remove", "cursor-update", "redo", "undo"],
+        (event) => {
+          // Limpar a camada temporária
+          this.clearLayer("temp");
+
+          // Obter a geometria temporária
+          if (event.vertices && event.vertices.length > 0) {
+            // Criar uma nova geometria temporária
+            const tempPolygon = new this.Polygon({
+              rings: [event.vertices],
+              spatialReference: this.view.spatialReference,
+            });
+
+            // Mostrar a geometria temporária
+            const editSymbol = {
+              type: "simple-fill",
+              color: [255, 165, 0, 0.3],
+              outline: {
+                color: [255, 165, 0, 0.8],
+                width: 2,
+                style: "dash",
+              },
+            };
+
+            this.addGraphic("temp", tempPolygon, editSymbol);
+          }
+        }
+      );
+
+      // Evento para conclusão da edição
+      action.on("reshape-complete", (event) => {
+        // Limpar a camada temporária
+        this.clearLayer("temp");
+
+        // Esconder o tooltip
+        this.hideTooltip();
+
+        // Chamar o callback com a geometria editada
+        callback(event.geometry);
+      });
+    } catch (error) {
+      console.error("Erro ao iniciar edição de polígono:", error);
+
+      // Caso a API reshape falhe, tentar método alternativo (redesenhar)
+      this._startPolygonReDraw(polygonGeometry, layerId, callback);
+    }
+  }
+
+  /**
+   * Método alternativo para edição de polígonos quando reshape falha
+   * @param {Object} originalGeometry - Geometria original do polígono
+   * @param {String} layerId - ID da camada
+   * @param {Function} callback - Função de retorno após edição
+   * @private
+   */
+  _startPolygonReDraw(originalGeometry, layerId, callback) {
+    // Exibir mensagem de modo alternativo
+    console.log("Usando modo alternativo de edição de polígono");
+
+    // Adicionar o polígono original como referência
+    const referenceSymbol = {
+      type: "simple-fill",
+      color: [100, 100, 100, 0.1],
+      outline: {
+        color: [100, 100, 100, 0.5],
+        width: 1,
+        style: "dash",
+      },
+    };
+
+    // Adicionar o polígono original como referência
+    this.addGraphic("temp", originalGeometry, referenceSymbol);
+
+    // Mostrar instrução
+    this.showTooltip(
+      {
+        x: this.view.width / 2,
+        y: 100,
+      },
+      "Desenhe o polígono novamente. Clique duplo para finalizar."
+    );
+
+    // Iniciar desenho de novo polígono
+    this.activateDrawTool("polygon", null, (newGeometry) => {
+      // Limpar a camada temporária
+      this.clearLayer("temp");
+
+      // Esconder o tooltip
+      this.hideTooltip();
+
+      // Chamar o callback com a nova geometria
+      callback(newGeometry);
+
+      return newGeometry;
+    });
   }
 }
 
