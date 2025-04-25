@@ -1,4 +1,3 @@
-
 <template lang="pug">
   .map-toolbar-container
     .map-toolbar
@@ -25,6 +24,14 @@
             size="small"
             icon="el-icon-location-information"
             :disabled="!canDrawPoint"
+          )
+        el-tooltip(:content="getLineTooltip()" placement="right")
+          el-button(
+            :class="{ active: currentTool === 'line' }"
+            @click="setTool('line')"
+            size="small"
+            icon="el-icon-set-up"
+            :disabled="!canDrawLine"
           )
         el-tooltip(:content="getEditTooltip()" placement="right")
           el-button(
@@ -92,7 +99,7 @@
       .layer-name-header
         span Camada: {{ selectedLayerName }}
     
-    // Resto do código permanece o mesmo
+    // Input para importação de arquivos
     input(
       type="file"
       ref="fileInput"
@@ -169,7 +176,7 @@ export default {
       deleteConfirmationMessage: '',
       measurementResult: null,
       fileUploadInProgress: false,
-      // Novas propriedades para a ferramenta de recorte
+      // Propriedades para a ferramenta de recorte
       cutConfirmDialogVisible: false,
       cutOperation: 'subtract', // 'subtract' ou 'intersect'
       isCutting: false,
@@ -200,7 +207,7 @@ export default {
     },
     selectedLayerGeometryType() {
       if (!this.selectedLayerType) return null;
-      return this.selectedLayerType.tipo_tema;
+      return this.selectedLayerType.tipo_geom;
     },
     hasDrawnGeometry() {
       return this.layers.some(l => l.id === this.selectedLayer);
@@ -210,7 +217,7 @@ export default {
       if (this.hasDrawnGeometry && this.selectedLayer === 'area_imovel') return false;
 
       // Verificar se o tipo de camada selecionada aceita polígonos
-      return this.selectedLayerGeometryType === 'mult';
+      return ['polygonSimple', 'multiPolygon'].includes(this.selectedLayerGeometryType);
     },
     canDrawPoint() {
       if (!this.selectedLayer) return false;
@@ -224,8 +231,7 @@ export default {
       if (this.hasDrawnGeometry && this.selectedLayer === 'area_imovel') return false;
 
       // Verificar se o tipo de camada selecionada aceita linhas
-      // No sistema atual, não há tipo "line" explícito, então assumimos false
-      return false;
+      return this.selectedLayerGeometryType === 'polyline';
     },
     canEditGeometry() {
       // Pode editar geometria apenas se ela já existe
@@ -236,10 +242,10 @@ export default {
       return this.hasSelectedLayer && this.hasDrawnGeometry;
     },
     canCutGeometry() {
-      // Pode recortar apenas polígonos existentes (não pontos)
-      return this.hasSelectedLayer && 
-             this.hasDrawnGeometry && 
-             this.selectedLayerGeometryType === 'mult';
+      // Pode recortar apenas polígonos existentes (não pontos ou linhas)
+      return this.hasSelectedLayer &&
+        this.hasDrawnGeometry &&
+        ['polygonSimple', 'multiPolygon'].includes(this.selectedLayerGeometryType);
     },
     canImportData() {
       // Pode importar dados apenas se uma camada estiver selecionada
@@ -386,9 +392,32 @@ export default {
         this.isDrawing = true;
         this.setDrawingMode(true);
 
-        // Determinar o tipo de geometria a ser desenhada (ponto ou polígono)
+        // Determinar o tipo de geometria a ser desenhada baseado no tipo_geom do layer selecionado
         const selectedLayerType = this.layerTypes.find(lt => lt.id === this.selectedLayer);
-        const geometryToUse = geometryType || (selectedLayerType && selectedLayerType.tipo_tema === 'point' ? 'point' : 'polygon');
+        let geometryToUse;
+
+        if (geometryType) {
+          // Se for específicado, usa o tipo passado
+          geometryToUse = geometryType;
+        } else if (selectedLayerType) {
+          // Mapear tipo_geom para tipo de geometria usado pelo ArcGIS
+          switch (selectedLayerType.tipo_geom) {
+            case 'point':
+              geometryToUse = 'point';
+              break;
+            case 'polyline':
+              geometryToUse = 'polyline';
+              break;
+            case 'polygonSimple':
+            case 'multiPolygon':
+              geometryToUse = 'polygon';
+              break;
+            default:
+              geometryToUse = 'polygon'; // Fallback para polígono
+          }
+        } else {
+          geometryToUse = 'polygon'; // Default
+        }
 
         // Se for outra camada que não área do imóvel, precisamos recuperar a geometria da área do imóvel
         let propertyGeometry = null;
@@ -443,6 +472,13 @@ export default {
             this.measurementResult = {
               type: 'area',
               value: tempArea * 10000 // Converter para m²
+            };
+          } else if (geometryToUse === 'polyline' && tempGeometry) {
+            // Para linhas, mostrar o comprimento em tempo real
+            const tempLength = arcgisService.geometryEngine.geodesicLength(tempGeometry, "meters");
+            this.measurementResult = {
+              type: 'distance',
+              value: tempLength
             };
           }
         };
@@ -589,7 +625,7 @@ export default {
         }
 
         // Chamar o serviço ArcGIS para iniciar a edição
-        arcgisService.startEditing(layer.geometry, this.selectedLayer, (editedGeometry) => {
+        arcgisService.startEditing(layer.geometry, this.selectedLayer, this.selectedLayerGeometryType, (editedGeometry) => {
           if (editedGeometry) {
             // Atualizar a geometria no store
             this.updateLayerGeometry({
@@ -601,13 +637,13 @@ export default {
                 type: 'success',
                 message: `${this.selectedLayerName} editada com sucesso.`
               });
-              
+
               // Limpar e redesenhar a camada no mapa
               arcgisService.clearLayer(this.selectedLayer);
               arcgisService.addGraphic(this.selectedLayer, editedGeometry);
             });
           }
-          
+
           // Volta para o modo de navegação
           this.currentTool = 'pan';
           arcgisService.activatePanMode();
@@ -718,24 +754,20 @@ export default {
           throw new Error('Não foi possível processar o arquivo.');
         }
 
-        // Validar a geometria importada
-        const validationResult = await this.$store.dispatch('layers/validateLayerGeometry', {
-          layerId: this.selectedLayer,
-          geometry: geometryResult.geometry
-        });
-
-        if (!validationResult.success) {
+        // Verificar se o tipo de geometria importada é compatível com o tipo esperado
+        const isGeometryTypeValid = this.validateGeometryType(geometryResult.geometry);
+        if (!isGeometryTypeValid) {
           this.addAlert({
             type: 'error',
-            message: validationResult.message || 'A geometria importada não atende aos critérios de validação.'
+            message: `O tipo de geometria no arquivo não é compatível com a camada "${this.selectedLayerName}".`
           });
           this.$refs.fileInput.value = '';
           this.fileUploadInProgress = false;
           return;
         }
 
-        // Adicionar a camada com a geometria importada
-        await this.$store.dispatch('layers/addLayer', {
+        // Validar a geometria importada
+        const validationResult = await this.$store.dispatch('layers/validateLayerGeometry', {
           layerId: this.selectedLayer,
           geometry: geometryResult.geometry
         });
@@ -757,6 +789,29 @@ export default {
       } finally {
         this.fileUploadInProgress = false;
       }
+    },
+    // Método para validar se o tipo de geometria é compatível com o tipo esperado para a camada
+    validateGeometryType(geometry) {
+      // Verificar se a camada existe
+      if (!this.selectedLayerType) {
+        return false;
+      }
+
+      // Obter o tipo esperado para a camada
+      const expectedType = this.selectedLayerType.tipo_geom;
+
+      // Verificar compatibilidade
+      if (geometry.type === 'point' && expectedType === 'point') {
+        return true;
+      } else if (geometry.type === 'polyline' && expectedType === 'polyline') {
+        return true;
+      } else if ((geometry.type === 'polygon' || geometry.type === 'extent') &&
+        (expectedType === 'polygonSimple' || expectedType === 'multiPolygon')) {
+        return true;
+      }
+
+      // Se chegou aqui, os tipos não são compatíveis
+      return false;
     },
     zoomIn() {
       arcgisService.zoomIn();
@@ -817,6 +872,11 @@ export default {
       if (!this.canDrawPoint) return 'Esta camada não aceita pontos';
       return 'Desenhar Ponto';
     },
+    getLineTooltip() {
+      if (!this.selectedLayer) return 'Selecione uma camada primeiro';
+      if (!this.canDrawLine) return 'Esta camada não aceita linhas';
+      return 'Desenhar Linha';
+    },
     getEditTooltip() {
       if (!this.hasSelectedLayer) return 'Selecione uma camada primeiro';
       if (!this.hasDrawnGeometry) return 'Não há geometria para editar nesta camada';
@@ -827,7 +887,6 @@ export default {
       if (!this.hasDrawnGeometry) return 'Não há geometria para excluir nesta camada';
       return 'Excluir Geometria';
     },
-    
     // NOVA FUNCIONALIDADE: Ferramenta de Recorte
     prepareCutTool() {
       // Verificar se existe uma camada selecionada com geometria
@@ -838,29 +897,29 @@ export default {
         });
         return;
       }
-      
+
       // Mostrar diálogo de confirmação
       this.cutConfirmDialogVisible = true;
     },
-    
+
     startCutOperation() {
       // Fechar o diálogo de confirmação
       this.cutConfirmDialogVisible = false;
-      
+
       // Atualizar estado para indicar que está no modo de recorte
       this.currentTool = 'cut';
       this.isCutting = true;
-      
+
       try {
         // Obter a geometria atual da camada selecionada
         const layer = this.layers.find(l => l.id === this.selectedLayer);
         if (!layer || !layer.geometry) {
           throw new Error('Geometria não encontrada para recorte.');
         }
-        
+
         // Armazenar a geometria alvo para o recorte
         this.targetGeometryForCut = layer.geometry;
-        
+
         // Mostrar a geometria original com estilo de "selecionado"
         arcgisService.clearLayer(this.selectedLayer);
         const selectionSymbol = {
@@ -873,7 +932,7 @@ export default {
           }
         };
         arcgisService.addGraphic(this.selectedLayer, this.targetGeometryForCut, selectionSymbol);
-        
+
         // Iniciar o desenho do polígono de recorte
         this.startCutDrawing();
       } catch (error) {
@@ -885,7 +944,7 @@ export default {
         this.cancelCutOperation();
       }
     },
-    
+
     async startCutDrawing() {
       try {
         // Configurar o estilo do polígono de recorte
@@ -898,31 +957,31 @@ export default {
             style: "dash"
           }
         };
-        
+
         // Callback para atualização em tempo real durante o desenho
         const onUpdateGeometry = (tempGeometry) => {
           if (tempGeometry) {
             // Mostrar prévia da interseção ou subtração em tempo real
             // Isso é complexo e pode afetar o desempenho, então é opcional
-            
+
             // Atualizar estilo do polígono temporário
             arcgisService.updateTempGraphicSymbol('warning');
           }
         };
-        
+
         // Callback para conclusão do desenho
         const onDrawComplete = async (geometry) => {
           if (!geometry) return null;
-          
+
           // Guardar a geometria de corte
           this.cutGeometry = geometry;
-          
+
           // Aplicar a operação de recorte
           await this.applyCutOperation();
-          
+
           return geometry;
         };
-        
+
         // Iniciar o desenho do polígono de recorte
         await arcgisService.activateDrawTool('polygon', onUpdateGeometry, onDrawComplete);
       } catch (error) {
@@ -934,20 +993,20 @@ export default {
         this.cancelCutOperation();
       }
     },
-    
+
     async applyCutOperation() {
       try {
         if (!this.targetGeometryForCut || !this.cutGeometry) {
           throw new Error('Geometrias de origem ou recorte não disponíveis.');
         }
-        
+
         let resultGeometry;
-        
+
         // Aplicar operação selecionada
         if (this.cutOperation === 'subtract') {
           // Recortar (subtrair a área de recorte)
           resultGeometry = arcgisService.difference(this.targetGeometryForCut, this.cutGeometry);
-          
+
           // Verificar se o resultado é válido
           if (!resultGeometry) {
             this.addAlert({
@@ -960,7 +1019,7 @@ export default {
         } else if (this.cutOperation === 'intersect') {
           // Interseção (manter apenas a área comum)
           resultGeometry = arcgisService.intersection(this.targetGeometryForCut, this.cutGeometry);
-          
+
           // Verificar se o resultado é válido
           if (!resultGeometry) {
             this.addAlert({
@@ -971,26 +1030,26 @@ export default {
             return;
           }
         }
-        
+
         // Calcular a nova área
         const newArea = arcgisService.calculateArea(resultGeometry);
-        
+
         // Atualizar a geometria no store
         await this.updateLayerGeometry({
           layerId: this.selectedLayer,
           geometry: resultGeometry
         });
-        
+
         // Limpar e redesenhar a camada no mapa com a nova geometria
         arcgisService.clearLayer(this.selectedLayer);
         arcgisService.addGraphic(this.selectedLayer, resultGeometry);
-        
+
         // Mostrar mensagem de sucesso
         this.addAlert({
           type: 'success',
           message: `Operação de ${this.cutOperation === 'subtract' ? 'recorte' : 'interseção'} realizada com sucesso.`
         });
-        
+
         // Limpar estado e voltar para o modo de navegação
         this.cleanupCutOperation();
       } catch (error) {
@@ -1002,7 +1061,7 @@ export default {
         this.cancelCutOperation();
       }
     },
-    
+
     cancelCutOperation() {
       // Se estava no meio de uma operação de recorte
       if (this.isCutting) {
@@ -1013,19 +1072,19 @@ export default {
           arcgisService.addGraphic(this.selectedLayer, layer.geometry);
         }
       }
-      
+
       this.cleanupCutOperation();
     },
-    
+
     cleanupCutOperation() {
       // Limpar estado da ferramenta de recorte
       this.isCutting = false;
       this.cutGeometry = null;
       this.targetGeometryForCut = null;
-      
+
       // Cancelar qualquer desenho ativo
       arcgisService.cancelDrawing();
-      
+
       // Voltar para o modo de navegação
       this.currentTool = 'pan';
       arcgisService.activatePanMode();
@@ -1062,8 +1121,10 @@ export default {
   border-radius: 4px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
   font-size: 14px;
-  display: inline-block; /* This makes the width adjust to content */
-  min-width: 40vw; /* Optional: prevents extremely long text */
+  display: inline-block;
+  /* This makes the width adjust to content */
+  min-width: 40vw;
+  /* Optional: prevents extremely long text */
 }
 
 /* Resto do CSS permanece o mesmo */
@@ -1187,6 +1248,36 @@ export default {
 .delete-dialog {
   .el-dialog {
     z-index: 99999 !important;
+  }
+}
+
+.cut-instructions {
+  position: absolute;
+  top: 70px;
+  left: 60px;
+  z-index: 2000;
+  width: 300px;
+  pointer-events: auto;
+
+  .instructions-content {
+    padding: 10px;
+    font-size: 14px;
+
+    p {
+      margin: 5px 0;
+    }
+  }
+}
+
+.cut-confirm-dialog {
+  .cut-options {
+    margin: 20px 0;
+  }
+
+  .cut-info {
+    p {
+      margin: 10px 0;
+    }
   }
 }
 </style>

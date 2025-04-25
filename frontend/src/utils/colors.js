@@ -14,13 +14,13 @@ export default {
     // Área do imóvel
     area_imovel: {
       fill: '#FFFFFF33',
-      outline: '#000000FF'
+      outline: '#DAA520'
     },
 
     // Sede do imóvel
     sede_imovel: {
-      fill: '#FF0000FF',
-      outline: '#000000FF'
+      fill: '#F0E68C',
+      outline: '#FFFF00'
     },
 
     // Área consolidada
@@ -37,8 +37,8 @@ export default {
 
     // Área de pousio
     area_pousio: {
-      fill: '#FFFF0099',
-      outline: '#FFFF00FF' 
+      fill: '#CD5C5C99',
+      outline: '#CD5C5CFF' 
     },
 
     // Servidão administrativa
@@ -55,8 +55,8 @@ export default {
 
     // Área antropizada após 2008
     area_antropizada_apos_2008_vetorizada: {
-      fill: '#FF000099',
-      outline: '#FF0000FF'
+      fill: '#556B2F99',
+      outline: '#556B2FFF'
     }
   }
 };

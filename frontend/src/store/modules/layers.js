@@ -147,7 +147,11 @@ export default {
       }
 
       // Recalcular área antropizada após 2008
-      dispatch("property/calculatearea_antropizada_apos_2008_vetorizada", null, { root: true });
+      dispatch(
+        "property/calculatearea_antropizada_apos_2008_vetorizada",
+        null,
+        { root: true }
+      );
 
       // Se necessário, recortar outras camadas
       if (
@@ -170,43 +174,48 @@ export default {
         // Primeiro, verifica se é a área do imóvel
         if (layerId === "area_imovel") {
           // Limpa todas as camadas no mapa antes de remover do estado
-          state.layers.forEach(layer => {
+          state.layers.forEach((layer) => {
             // Use um serviço ou método para limpar cada camada no mapa
-            dispatch('clearLayerGraphics', layer.id, { root: false });
+            dispatch("clearLayerGraphics", layer.id, { root: false });
           });
-          
+
           // Remove todas as camadas do estado
           commit("REMOVE_ALL_LAYERS");
-          
+
           // Certifica-se de que não há camada selecionada
           commit("SET_SELECTED_LAYER", null);
-          
+
           return {
             success: true,
-            message: "Todas as camadas foram removidas pois a Área do imóvel foi excluída."
+            message:
+              "Todas as camadas foram removidas pois a Área do imóvel foi excluída.",
           };
         } else {
           // Limpa a camada específica no mapa
-          dispatch('clearLayerGraphics', layerId, { root: false });
-          
+          dispatch("clearLayerGraphics", layerId, { root: false });
+
           // Remove a camada do estado
           commit("REMOVE_LAYER", layerId);
-          
+
           // Se a camada removida for a selecionada atualmente, limpe a seleção
           if (state.selectedLayer === layerId) {
             commit("SET_SELECTED_LAYER", null);
           }
-          
+
           // Recalcular área antropizada após 2008
-          dispatch("property/calculatearea_antropizada_apos_2008_vetorizada", null, { root: true });
-          
+          dispatch(
+            "property/calculatearea_antropizada_apos_2008_vetorizada",
+            null,
+            { root: true }
+          );
+
           return { success: true };
         }
       } catch (error) {
         console.error("Erro ao remover camada:", error);
-        return { 
-          success: false, 
-          message: "Ocorreu um erro ao remover a camada."
+        return {
+          success: false,
+          message: "Ocorreu um erro ao remover a camada.",
         };
       }
     },
@@ -217,7 +226,42 @@ export default {
     },
 
     async validateLayerGeometry({ state, rootState }, { layerId, geometry }) {
-      // Implementação de validação usando operações geométricas do ArcGIS
+      // Obter o tipo de camada
+      const layerType = state.layerTypes.find((lt) => lt.id === layerId);
+
+      if (!layerType) {
+        return {
+          success: false,
+          message: `Tipo de camada inválido: ${layerId}`,
+        };
+      }
+
+      // Verificar se o tipo de geometria é compatível com o tipo esperado
+      const expectedGeomType = layerType.tipo_geom;
+      let isCompatible = false;
+
+      // Verificar compatibilidade baseado no tipo da geometria
+      if (geometry.type === "point" && expectedGeomType === "point") {
+        isCompatible = true;
+      } else if (
+        geometry.type === "polyline" &&
+        expectedGeomType === "polyline"
+      ) {
+        isCompatible = true;
+      } else if (
+        (geometry.type === "polygon" || geometry.type === "extent") &&
+        (expectedGeomType === "polygonSimple" ||
+          expectedGeomType === "multiPolygon")
+      ) {
+        isCompatible = true;
+      }
+
+      if (!isCompatible) {
+        return {
+          success: false,
+          message: `A geometria fornecida não é compatível com o tipo esperado (${expectedGeomType}) para a camada "${layerType.name}".`,
+        };
+      }
 
       // Validações específicas por tipo de camada
       switch (layerId) {
@@ -475,7 +519,11 @@ export default {
       console.log("Recortando camadas sobrepostas...");
 
       // Recálculo da área antropizada após as operações de recorte
-      dispatch("property/calculatearea_antropizada_apos_2008_vetorizada", null, { root: true });
+      dispatch(
+        "property/calculatearea_antropizada_apos_2008_vetorizada",
+        null,
+        { root: true }
+      );
     },
 
     clearLayerGraphics({ commit }, layerId) {
@@ -483,6 +531,32 @@ export default {
       if (window.arcgisService) {
         window.arcgisService.clearLayer(layerId);
       }
+    },
+
+    /**
+     * Verifica se o tipo da geometria é compatível com o tipo de camada esperado
+     * @param {Object} geometry - A geometria a ser verificada
+     * @param {String} expectedType - O tipo de geometria esperado (polygonSimple, multiPolygon, point, polyline)
+     * @returns {Boolean} True se a geometria for compatível, false caso contrário
+     */
+    validateGeometryType(_, { geometry, expectedType }) {
+      if (!geometry || !expectedType) {
+        return false;
+      }
+
+      // Mapear o tipo da geometria para o tipo esperado
+      if (geometry.type === "point" && expectedType === "point") {
+        return true;
+      } else if (geometry.type === "polyline" && expectedType === "polyline") {
+        return true;
+      } else if (
+        (geometry.type === "polygon" || geometry.type === "extent") &&
+        (expectedType === "polygonSimple" || expectedType === "multiPolygon")
+      ) {
+        return true;
+      }
+
+      return false;
     },
 
     /**
@@ -526,9 +600,13 @@ export default {
         }
 
         // Recalcular área antropizada após 2008
-        dispatch("property/calculatearea_antropizada_apos_2008_vetorizada", null, {
-          root: true,
-        });
+        dispatch(
+          "property/calculatearea_antropizada_apos_2008_vetorizada",
+          null,
+          {
+            root: true,
+          }
+        );
 
         // Se necessário, recortar outras camadas
         if (

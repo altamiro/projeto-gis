@@ -546,13 +546,19 @@ export class ArcGISService {
     this.tempSymbolState = state;
   }
 
-  // Versão atualizada do método activateDrawTool
+  /**
+   * Ativa a ferramenta de desenho para um tipo específico de geometria
+   * @param {String} type - Tipo de geometria ('polygon', 'point', 'polyline')
+   * @param {Function} onUpdate - Callback chamado durante a atualização do desenho
+   * @param {Function} onDrawComplete - Callback chamado ao completar o desenho
+   * @returns {Promise} Promessa com a geometria desenhada
+   */
   activateDrawTool(type = "polygon", onUpdate = null, onDrawComplete = null) {
     // Limpa qualquer desenho ativo
     this.drawTool.reset();
 
     return new Promise((resolve) => {
-      // Ativar desenho de polígono ou ponto
+      // Ativar desenho de polígono, ponto ou linha
       const action = this.drawTool.create(type);
 
       // Criar uma camada temporária para exibir o desenho em andamento
@@ -580,6 +586,13 @@ export class ArcGISService {
               tempGeometry = new Point({
                 x: event.coordinates[0],
                 y: event.coordinates[1],
+                spatialReference: this.view.spatialReference,
+              });
+            }
+          } else if (type === "polyline") {
+            if (event.vertices && event.vertices.length > 0) {
+              tempGeometry = new Polyline({
+                paths: [event.vertices],
                 spatialReference: this.view.spatialReference,
               });
             }
@@ -619,17 +632,25 @@ export class ArcGISService {
         tempGraphicLayer.removeAll();
 
         // Ao completar o desenho, criar a geometria final
-        const geometry =
-          type === "point"
-            ? new Point({
-                x: event.coordinates[0],
-                y: event.coordinates[1],
-                spatialReference: this.view.spatialReference,
-              })
-            : new Polygon({
-                rings: [event.vertices],
-                spatialReference: this.view.spatialReference,
-              });
+        let geometry;
+
+        if (type === "point") {
+          geometry = new Point({
+            x: event.coordinates[0],
+            y: event.coordinates[1],
+            spatialReference: this.view.spatialReference,
+          });
+        } else if (type === "polyline") {
+          geometry = new Polyline({
+            paths: [event.vertices],
+            spatialReference: this.view.spatialReference,
+          });
+        } else {
+          geometry = new Polygon({
+            rings: [event.vertices],
+            spatialReference: this.view.spatialReference,
+          });
+        }
 
         // Se tiver callback de conclusão personalizado, usá-lo para validação
         if (onDrawComplete && typeof onDrawComplete === "function") {
@@ -642,7 +663,12 @@ export class ArcGISService {
     });
   }
 
-  // Método atualizado para suportar diferentes estados de símbolos
+  /**
+   * Método atualizado para suportar diferentes estados e tipos de símbolos
+   * @param {String} type - Tipo de geometria ('polygon', 'point', 'polyline')
+   * @param {String} state - Estado do símbolo ('default', 'warning', 'valid', etc.)
+   * @returns {Object} Configuração do símbolo
+   */
   getTempSymbol(type, state = "default") {
     if (type === "point") {
       // Cores diferentes baseadas no estado
@@ -658,8 +684,8 @@ export class ArcGISService {
           outlineColor = [0, 255, 0, 1];
           break;
         default:
-          color = [255, 0, 0, 0.5]; // Vermelho padrão
-          outlineColor = [255, 0, 0, 0.8];
+          color = [0, 0, 255, 0.5]; // Azul padrão
+          outlineColor = [0, 0, 255, 0.8];
       }
 
       return {
@@ -671,6 +697,33 @@ export class ArcGISService {
           color: outlineColor,
           width: 1,
         },
+      };
+    } else if (type === "polyline") {
+      // Linha - atualizado para diferentes estados
+      let lineColor, lineWidth, lineStyle;
+
+      switch (state) {
+        case "warning":
+          lineColor = [255, 0, 0, 0.8]; // Vermelho
+          lineWidth = 3;
+          lineStyle = "short-dash";
+          break;
+        case "valid":
+          lineColor = [0, 255, 0, 0.8]; // Verde
+          lineWidth = 3;
+          lineStyle = "solid";
+          break;
+        default:
+          lineColor = [0, 0, 255, 0.8]; // Azul padrão
+          lineWidth = 3;
+          lineStyle = "dash";
+      }
+
+      return {
+        type: "simple-line",
+        color: lineColor,
+        width: lineWidth,
+        style: lineStyle,
       };
     } else {
       // Polígono - atualizado para diferentes estados
@@ -815,7 +868,7 @@ export class ArcGISService {
         type: "simple-marker",
         style: "square",
         color: colors.layers.sede_imovel.fill,
-        size: "12px",
+        size: "10px",
         outline: {
           color: colors.layers.sede_imovel.outline,
           width: 1,
@@ -1080,9 +1133,10 @@ export class ArcGISService {
    * Inicia a edição de uma geometria existente
    * @param {Object} geometry - Geometria a ser editada
    * @param {String} layerId - ID da camada
+   * @param {String} geometryType - Tipo de geometria (polygonSimple, multiPolygon, point, polyline)
    * @param {Function} callback - Função de retorno após edição
    */
-  startEditing(geometry, layerId, callback) {
+  startEditing(geometry, layerId, geometryType, callback) {
     // Verificar se a geometria está disponível
     if (!geometry) {
       throw new Error("Geometria não disponível para edição");
@@ -1099,21 +1153,55 @@ export class ArcGISService {
     // Criar uma cópia da geometria para edição
     const editableGeometry = geometry.clone();
 
-    // Determinar o tipo de geometria
-    const isPoint = geometry.type === "point";
+    // Determinar o tipo de geometria baseado no tipo informado ou no tipo da geometria
+    let geometryEditType = "polygon"; // Valor padrão
 
-    // Adicionar a geometria à camada temporária com aparência diferente (modo de edição)
-    const editSymbol = {
-      type: isPoint ? "simple-marker" : "simple-fill",
-      color: [255, 165, 0, 0.5], // Laranja transparente
-      outline: {
-        color: [255, 165, 0, 1],
-        width: 2,
-        style: "dash",
-      },
-      // Adiciona tamanho maior para pontos
-      ...(isPoint && { size: "14px" }),
-    };
+    if (geometryType === "point" || geometry.type === "point") {
+      geometryEditType = "point";
+    } else if (geometryType === "polyline" || geometry.type === "polyline") {
+      geometryEditType = "polyline";
+    } else if (
+      geometryType === "polygonSimple" ||
+      geometryType === "multiPolygon" ||
+      geometry.type === "polygon" ||
+      geometry.type === "extent"
+    ) {
+      geometryEditType = "polygon";
+    }
+
+    // Definir o símbolo apropriado para o tipo de geometria
+    let editSymbol;
+
+    if (geometryEditType === "point") {
+      editSymbol = {
+        type: "simple-marker",
+        style: "circle",
+        color: [255, 165, 0, 0.7],
+        size: "14px",
+        outline: {
+          color: [255, 165, 0, 1],
+          width: 2,
+        },
+      };
+    } else if (geometryEditType === "polyline") {
+      editSymbol = {
+        type: "simple-line",
+        color: [255, 165, 0, 0.8],
+        width: 3,
+        style: "short-dash",
+      };
+    } else {
+      // polygon
+      editSymbol = {
+        type: "simple-fill",
+        color: [255, 165, 0, 0.5],
+        outline: {
+          color: [255, 165, 0, 1],
+          width: 2,
+          style: "dash",
+        },
+      };
+    }
 
     // Adicionar a geometria à camada temporária
     this.addGraphic("temp", editableGeometry, editSymbol);
@@ -1122,11 +1210,157 @@ export class ArcGISService {
     this.zoomToGeometry(editableGeometry);
 
     // Iniciar a edição apropriada com base no tipo de geometria
-    if (isPoint) {
+    if (geometryEditType === "point") {
       this._startPointEditing(editableGeometry, layerId, callback);
+    } else if (geometryEditType === "polyline") {
+      this._startPolylineEditing(editableGeometry, layerId, callback);
     } else {
       this._startPolygonEditing(editableGeometry, layerId, callback);
     }
+  }
+
+  /**
+   * Inicia a edição de uma linha (polyline)
+   * @param {Object} polylineGeometry - Geometria da linha
+   * @param {String} layerId - ID da camada
+   * @param {Function} callback - Função de retorno após edição
+   * @private
+   */
+  _startPolylineEditing(polylineGeometry, layerId, callback) {
+    try {
+      // Usar a API de reshape para editar a linha
+      const action = this.drawTool.reshape(polylineGeometry);
+
+      // Configurar o estilo de visualização
+      this.updateTempGraphicSymbol("default");
+
+      // Adicionar instruções de uso
+      this.showTooltip(
+        {
+          x: this.view.width / 2,
+          y: 100,
+        },
+        "Arraste os vértices para modificar a linha. Clique duplo para finalizar."
+      );
+
+      // Eventos para atualização em tempo real durante a edição
+      action.on(
+        ["vertex-add", "vertex-remove", "cursor-update", "redo", "undo"],
+        (event) => {
+          // Limpar a camada temporária
+          this.clearLayer("temp");
+
+          // Obter a geometria temporária
+          if (event.vertices && event.vertices.length > 0) {
+            // Criar uma nova linha temporária
+            const tempPolyline = new this.Polyline({
+              paths: [event.vertices],
+              spatialReference: this.view.spatialReference,
+            });
+
+            // Mostrar a geometria temporária
+            const editSymbol = {
+              type: "simple-line",
+              color: [255, 165, 0, 0.8],
+              width: 3,
+              style: "short-dash",
+            };
+
+            this.addGraphic("temp", tempPolyline, editSymbol);
+
+            // Calcular o comprimento em tempo real
+            const length = this.geometryEngine.geodesicLength(
+              tempPolyline,
+              "meters"
+            );
+
+            // Atualizar o tooltip com o comprimento atual
+            this.showTooltip(
+              {
+                x: this.view.width / 2,
+                y: 150,
+              },
+              `Comprimento atual: ${this.formatDistance(length)}`
+            );
+          }
+        }
+      );
+
+      // Evento para conclusão da edição
+      action.on("reshape-complete", (event) => {
+        // Limpar a camada temporária
+        this.clearLayer("temp");
+
+        // Esconder o tooltip
+        this.hideTooltip();
+
+        // Chamar o callback com a geometria editada
+        callback(event.geometry);
+      });
+    } catch (error) {
+      console.error("Erro ao iniciar edição de linha:", error);
+
+      // Caso a API reshape falhe, tentar método alternativo (redesenhar)
+      this._startPolylineReDraw(polylineGeometry, layerId, callback);
+    }
+  }
+
+  /**
+   * Formata uma distância em metros para exibição amigável
+   * @param {Number} meters - Distância em metros
+   * @returns {String} Distância formatada
+   */
+  formatDistance(meters) {
+    if (meters >= 1000) {
+      return `${(meters / 1000).toFixed(2)} km`;
+    }
+    return `${meters.toFixed(2)} m`;
+  }
+
+  /**
+   * Método alternativo para edição de linhas quando reshape falha
+   * @param {Object} originalGeometry - Geometria original da linha
+   * @param {String} layerId - ID da camada
+   * @param {Function} callback - Função de retorno após edição
+   * @private
+   */
+  _startPolylineReDraw(originalGeometry, layerId, callback) {
+    // Exibir mensagem de modo alternativo
+    console.log("Usando modo alternativo de edição de linha");
+
+    // Adicionar a linha original como referência
+    const referenceSymbol = {
+      type: "simple-line",
+      color: [100, 100, 100, 0.5],
+      width: 2,
+      style: "short-dash",
+    };
+
+    // Adicionar a linha original como referência
+    this.addGraphic("temp", originalGeometry, referenceSymbol);
+
+    // Mostrar instrução
+    this.showTooltip(
+      {
+        x: this.view.width / 2,
+        y: 100,
+      },
+      "Desenhe a linha novamente. Clique duplo para finalizar."
+    );
+
+    // Iniciar desenho de nova linha
+    this.activateDrawTool("polyline", null, (newGeometry) => {
+      // Limpar a camada temporária
+      this.clearLayer("temp");
+
+      // Esconder o tooltip
+      this.hideTooltip();
+
+      // Chamar o callback com a nova geometria
+      callback(newGeometry);
+
+      return newGeometry;
+    });
   }
 
   /**
