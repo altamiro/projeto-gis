@@ -746,8 +746,8 @@ export default {
         .filter((l) =>
           [
             "area_consolidada",
-            "vegetacao_nativa",
             "area_pousio",
+            "vegetacao_nativa",
             "area_antropizada_apos_2008_vetorizada",
           ].includes(l.id)
         )
