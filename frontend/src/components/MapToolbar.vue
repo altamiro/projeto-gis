@@ -1,3 +1,4 @@
+
 <template lang="pug">
   .map-toolbar-container
     .map-toolbar
@@ -77,12 +78,13 @@
             icon="el-icon-position"
             :disabled="!municipalitySelected"
           )
-      
-      // Exibir nome da camada selecionada
-      .toolbar-group.layer-info-group(v-if="selectedLayerName")
-        .layer-name-display {{ selectedLayerName }}
     
-    // Input invisível para upload de arquivo
+    // Card para exibir o nome da camada selecionada
+    .layer-name-card(v-if="selectedLayerName")
+      .layer-name-header
+        span Camada: {{ selectedLayerName }}
+    
+    // Resto do código permanece o mesmo
     input(
       type="file"
       ref="fileInput"
@@ -771,12 +773,33 @@ export default {
   top: 10px;
   left: 10px;
   z-index: 2000;
-  /* Valor alto para garantir que fique acima de outros elementos */
   display: flex;
   flex-direction: column;
   pointer-events: none;
 }
 
+.layer-name-card {
+  position: absolute;
+  top: 1px;
+  left: 60px;
+  z-index: 2000;
+  pointer-events: auto;
+}
+
+.layer-name-header {
+  background-color: white;
+  color: #d2200c;
+  padding: 10px 15px;
+  font-weight: bold;
+  text-align: left;
+  border-radius: 4px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  font-size: 14px;
+  display: inline-block; /* This makes the width adjust to content */
+  min-width: 40vw; /* Optional: prevents extremely long text */
+}
+
+/* Resto do CSS permanece o mesmo */
 .map-toolbar {
   background-color: white;
   border-radius: 4px;
@@ -785,14 +808,11 @@ export default {
   display: flex;
   flex-direction: column;
   align-items: center;
-  /* Centraliza tudo horizontalmente */
   gap: 10px;
   pointer-events: auto;
   max-height: calc(100vh - 150px);
   overflow-y: auto;
   width: 44px;
-  /* Largura fixa para garantir consistência */
-
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
 
   &:hover {
