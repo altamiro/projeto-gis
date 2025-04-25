@@ -10,7 +10,7 @@
           el-descriptions-item(label="Área Líquida do Imóvel")
             span {{ formatArea(netarea_imovel) }} ha
           el-descriptions-item(label="Área Antropizada após 2008")
-            span {{ formatArea(anthropizedAfter2008) }} ha
+            span {{ formatArea(area_antropizada_apos_2008_vetorizada) }} ha
       .no-property-info(v-else)
         span Vetorize a área do imóvel para visualizar os cálculos.
       
@@ -44,7 +44,7 @@ export default {
         return propertyLayer ? propertyLayer.area : 0;
       },
       netarea_imovel: state => state.property.netarea_imovel,
-      anthropizedAfter2008: state => state.property.anthropizedAfter2008
+      area_antropizada_apos_2008_vetorizada: state => state.property.area_antropizada_apos_2008_vetorizada
     }),
     ...mapGetters({
       isPropertyFullyCovered: 'layers/isPropertyFullyCovered'

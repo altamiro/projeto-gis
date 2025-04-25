@@ -147,7 +147,7 @@ export default {
       }
 
       // Recalcular área antropizada após 2008
-      dispatch("property/calculateAnthropizedAfter2008", null, { root: true });
+      dispatch("property/calculatearea_antropizada_apos_2008_vetorizada", null, { root: true });
 
       // Se necessário, recortar outras camadas
       if (
@@ -198,7 +198,7 @@ export default {
           }
           
           // Recalcular área antropizada após 2008
-          dispatch("property/calculateAnthropizedAfter2008", null, { root: true });
+          dispatch("property/calculatearea_antropizada_apos_2008_vetorizada", null, { root: true });
           
           return { success: true };
         }
@@ -475,7 +475,7 @@ export default {
       console.log("Recortando camadas sobrepostas...");
 
       // Recálculo da área antropizada após as operações de recorte
-      dispatch("property/calculateAnthropizedAfter2008", null, { root: true });
+      dispatch("property/calculatearea_antropizada_apos_2008_vetorizada", null, { root: true });
     },
 
     clearLayerGraphics({ commit }, layerId) {
@@ -526,7 +526,7 @@ export default {
         }
 
         // Recalcular área antropizada após 2008
-        dispatch("property/calculateAnthropizedAfter2008", null, {
+        dispatch("property/calculatearea_antropizada_apos_2008_vetorizada", null, {
           root: true,
         });
 
@@ -670,7 +670,7 @@ export default {
             "area_consolidada",
             "vegetacao_nativa",
             "area_pousio",
-            "anthropizedAfter2008",
+            "area_antropizada_apos_2008_vetorizada",
           ].includes(l.id)
         )
         .reduce((sum, layer) => sum + (layer.area || 0), 0);

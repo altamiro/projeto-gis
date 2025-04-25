@@ -144,6 +144,16 @@ export const LAYER_TYPES = [
     required: false
   },
   {
+    tema_id: 99,
+    grupo: "cobertura_do_solo",
+    order: 6,
+    id: "area_antropizada_apos_2008_vetorizada",
+    name: "Área Antropizada após 2008",
+    tipo_tema: "mult",
+    editable: true,
+    required: false,
+  },
+  {
     tema_id: 29,
     grupo: "servidao_administrativa",
     order: 1,
@@ -739,16 +749,6 @@ export const LAYER_TYPES = [
     order: 98,
     id: "hydrography",
     name: "Hidrografia",
-    tipo_tema: "mult",
-    editable: false,
-    required: false,
-  },
-  {
-    tema_id: null,
-    grupo: "cobertura_do_solo",
-    order: 99,
-    id: "anthropizedAfter2008",
-    name: "Área Antropizada após 2008",
     tipo_tema: "mult",
     editable: false,
     required: false,

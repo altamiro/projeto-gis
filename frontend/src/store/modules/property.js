@@ -9,7 +9,7 @@ export default {
     area_imovel: 0,
     netarea_imovel: 0,
     sede_imovel: null,
-    anthropizedAfter2008: 0
+    area_antropizada_apos_2008_vetorizada: 0
   },
   mutations: {
     SET_MUNICIPALITY(state, municipality) {
@@ -28,7 +28,7 @@ export default {
       state.sede_imovel = sede_imovel;
     },
     SET_ANTHROPIZED_AFTER_2008(state, area) {
-      state.anthropizedAfter2008 = area;
+      state.area_antropizada_apos_2008_vetorizada = area;
     }
   },
   actions: {
@@ -141,7 +141,7 @@ export default {
       commit('SET_NET_PROPERTY_AREA', netArea);
       return netArea;
     },
-    calculateAnthropizedAfter2008({ commit, rootState }) {
+    calculatearea_antropizada_apos_2008_vetorizada({ commit, rootState }) {
       const area_imovel = rootState.layers.layers.find(l => l.id === 'area_imovel')?.area || 0;
       const area_consolidada = rootState.layers.layers.find(l => l.id === 'area_consolidada')?.area || 0;
       const vegetacao_nativa = rootState.layers.layers.find(l => l.id === 'vegetacao_nativa')?.area || 0;
@@ -152,9 +152,9 @@ export default {
         .filter(l => l.type === 'hydrography')
         .reduce((sum, layer) => sum + (layer.area || 0), 0);
       
-      const anthropizedAfter2008 = area_imovel - (area_consolidada + vegetacao_nativa + area_servidao_administrativa_totals + hydrography);
-      commit('SET_ANTHROPIZED_AFTER_2008', anthropizedAfter2008);
-      return anthropizedAfter2008;
+      const area_antropizada_apos_2008_vetorizada = area_imovel - (area_consolidada + vegetacao_nativa + area_servidao_administrativa_totals + hydrography);
+      commit('SET_ANTHROPIZED_AFTER_2008', area_antropizada_apos_2008_vetorizada);
+      return area_antropizada_apos_2008_vetorizada;
     }
   },
   getters: {

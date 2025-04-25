@@ -148,7 +148,7 @@ export class ArcGISService {
       "area_pousio",
       "area_servidao_administrativa_total",
       "hydrography",
-      "anthropizedAfter2008",
+      "area_antropizada_apos_2008_vetorizada",
       "temp", // Adicionar camada temporária para desenho em tempo real
     ];
 
@@ -861,11 +861,11 @@ export class ArcGISService {
           width: 1,
         },
       },
-      anthropizedAfter2008: {
+      area_antropizada_apos_2008_vetorizada: {
         type: "simple-fill",
-        color: colors.layers.anthropizedAfter2008.fill,
+        color: colors.layers.area_antropizada_apos_2008_vetorizada.fill,
         outline: {
-          color: colors.layers.anthropizedAfter2008.outline,
+          color: colors.layers.area_antropizada_apos_2008_vetorizada.outline,
           width: 1,
         },
       },

@@ -36,7 +36,7 @@ export default {
    * @param {Array} hydrographyGeometries - Array de geometrias das hidrografias
    * @returns {Number} Área antropizada após 2008 em hectares
    */
-  calculateAnthropizedAfter2008(
+  calculatearea_antropizada_apos_2008_vetorizada(
     propertyGeometry, 
     consolidatedGeometry, 
     vegetationGeometry, 
@@ -85,10 +85,10 @@ export default {
     }
     
     // Calcular área antropizada após 2008
-    const anthropizedAfter2008 = totalArea - (area_consolidada + vegetationArea + servitudeArea + hydrographyArea);
+    const area_antropizada_apos_2008_vetorizada = totalArea - (area_consolidada + vegetationArea + servitudeArea + hydrographyArea);
     
     // Garantir que não seja negativo (pode ocorrer por arredondamentos ou imprecisões)
-    return Math.max(0, anthropizedAfter2008);
+    return Math.max(0, area_antropizada_apos_2008_vetorizada);
   },
   
   /**

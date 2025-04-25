@@ -13,50 +13,50 @@ export default {
   layers: {
     // Área do imóvel
     area_imovel: {
-      fill: [255, 255, 255, 0.2],
-      outline: [0, 0, 0, 1]
+      fill: '#FFFFFF33',
+      outline: '#000000FF'
     },
-    
+
     // Sede do imóvel
     sede_imovel: {
-      fill: [255, 0, 0, 1],
-      outline: [0, 0, 0, 1]
+      fill: '#FF0000FF',
+      outline: '#000000FF'
     },
-    
+
     // Área consolidada
     area_consolidada: {
-      fill: [245, 166, 35, 0.6],
-      outline: [245, 166, 35, 1]
+      fill: '#F5A62399',
+      outline: '#F5A623FF'
     },
-    
+
     // Vegetação nativa
     vegetacao_nativa: {
-      fill: [60, 179, 113, 0.6],
-      outline: [60, 179, 113, 1]
+      fill: '#3CB37199',
+      outline: '#3CB371FF'
     },
-    
+
     // Área de pousio
     area_pousio: {
-      fill: [255, 255, 0, 0.6],
-      outline: [255, 255, 0, 1]
+      fill: '#FFFF0099',
+      outline: '#FFFF00FF' 
     },
-    
+
     // Servidão administrativa
     area_servidao_administrativa_total: {
-      fill: [128, 0, 128, 0.6],
-      outline: [128, 0, 128, 1]
+      fill: '#80008099',
+      outline: '#800080FF'
     },
-    
+
     // Hidrografia
     hydrography: {
-      fill: [0, 191, 255, 0.6],
-      outline: [0, 191, 255, 1]
+      fill: '#00BFFF99',
+      outline: '#00BFFFFF'
     },
-    
+
     // Área antropizada após 2008
-    anthropizedAfter2008: {
-      fill: [255, 0, 0, 0.6],
-      outline: [255, 0, 0, 1]
+    area_antropizada_apos_2008_vetorizada: {
+      fill: '#FF000099',
+      outline: '#FF0000FF'
     }
   }
 };
