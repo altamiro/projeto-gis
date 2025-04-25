@@ -60,7 +60,7 @@ export const LAYER_TYPES = [
     id: "area_imovel_liquida_analise",
     name: "Área do Imóvel Líquida Análise",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -70,7 +70,7 @@ export const LAYER_TYPES = [
     id: "area_territorio_pct",
     name: "Área do Território",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -160,7 +160,7 @@ export const LAYER_TYPES = [
     id: "area_entorno_reservatorio_energia",
     name: "Entorno de Reservatório para Abastecimento ou Geração de Energia",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -200,7 +200,7 @@ export const LAYER_TYPES = [
     id: "app_area_ac",
     name: "APP em área consolidada",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -208,7 +208,7 @@ export const LAYER_TYPES = [
     grupo: "app_e_uso_restrito",
     order: 2,
     id: "app_reservatorio_geracao_energia_ate_24_08_2001",
-    name: "APP Reservatório de Geração de Energia Elétrica Construído até 24/08/2001",
+    name: "Reservatório de Geração de Energia Elétrica Construído até 24/08/2001",
     tipo_tema: "mult",
     editable: true,
     required: false
@@ -220,7 +220,7 @@ export const LAYER_TYPES = [
     id: "app_escadinha",
     name: "APP Segundo art. 61-A da Lei nº 12.651/2012",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -230,7 +230,7 @@ export const LAYER_TYPES = [
     id: "app_total",
     name: "APP Total",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -260,7 +260,7 @@ export const LAYER_TYPES = [
     id: "app_escadinha_lago_natural",
     name: "Área de Preservação Permanente a Recompor de Lagos e Lagoas Naturais",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -270,7 +270,7 @@ export const LAYER_TYPES = [
     id: "app_escadinha_nascente_olho_dagua",
     name: "Área de Preservação Permanente a Recompor de Nascentes ou Olhos D'água Perenes",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -280,7 +280,7 @@ export const LAYER_TYPES = [
     id: "app_escadinha_rio_ate_10",
     name: "Área de Preservação Permanente a Recompor de Rios até 10 metros",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -290,7 +290,7 @@ export const LAYER_TYPES = [
     id: "app_escadinha_rio_acima_600",
     name: "Área de Preservação Permanente a Recompor de Rios com mais de 600 metros",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -300,7 +300,7 @@ export const LAYER_TYPES = [
     id: "app_escadinha_rio_10_a_50",
     name: "Área de Preservação Permanente a Recompor de Rios de 10 até 50 metros",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -310,7 +310,7 @@ export const LAYER_TYPES = [
     id: "app_escadinha_rio_200_a_600",
     name: "Área de Preservação Permanente a Recompor de Rios de 200 até 600 metros",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -320,7 +320,7 @@ export const LAYER_TYPES = [
     id: "app_escadinha_rio_50_a_200",
     name: "Área de Preservação Permanente a Recompor de Rios de 50 até 200 metros",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -330,7 +330,7 @@ export const LAYER_TYPES = [
     id: "app_escadinha_vereda",
     name: "Área de Preservação Permanente a Recompor de Veredas",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -340,7 +340,7 @@ export const LAYER_TYPES = [
     id: "app_area_altitude_superior_1800",
     name: "Área de Preservação Permanente de Áreas com Altitude Superior a 1800 metros",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -350,7 +350,7 @@ export const LAYER_TYPES = [
     id: "app_area_declividade_maior_45",
     name: "Área de Preservação Permanente de Áreas com Declividades Superiores a 45 graus",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -360,7 +360,7 @@ export const LAYER_TYPES = [
     id: "app_banhado",
     name: "Área de Preservação Permanente de Banhado",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -370,7 +370,7 @@ export const LAYER_TYPES = [
     id: "app_borda_chapada",
     name: "Área de Preservação Permanente de Bordas de Chapada",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -380,7 +380,7 @@ export const LAYER_TYPES = [
     id: "app_lago_natural",
     name: "Área de Preservação Permanente de Lagos e Lagoas Naturais",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -390,7 +390,7 @@ export const LAYER_TYPES = [
     id: "app_manguezal",
     name: "Área de Preservação Permanente de Manguezais",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -400,7 +400,7 @@ export const LAYER_TYPES = [
     id: "app_nascente_olho_dagua",
     name: "Área de Preservação Permanente de Nascentes ou Olhos D'água Perenes",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -410,7 +410,7 @@ export const LAYER_TYPES = [
     id: "app_reservatorio_artificial_decorrente_barramento",
     name: "Área de Preservação Permanente de Reservatório artificial decorrente de barramento de cursos d'água",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -420,7 +420,7 @@ export const LAYER_TYPES = [
     id: "app_restinga",
     name: "Área de Preservação Permanente de Restingas",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -430,7 +430,7 @@ export const LAYER_TYPES = [
     id: "app_rio_ate_10",
     name: "Área de Preservação Permanente de Rios até 10 metros",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -440,7 +440,7 @@ export const LAYER_TYPES = [
     id: "app_rio_acima_600",
     name: "Área de Preservação Permanente de Rios com mais de 600 metros",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -450,7 +450,7 @@ export const LAYER_TYPES = [
     id: "app_rio_10_a_50",
     name: "Área de Preservação Permanente de Rios de 10 até 50 metros",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -460,7 +460,7 @@ export const LAYER_TYPES = [
     id: "app_rio_200_a_600",
     name: "Área de Preservação Permanente de Rios de 200 até 600 metros",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -470,7 +470,7 @@ export const LAYER_TYPES = [
     id: "app_rio_50_a_200",
     name: "Área de Preservação Permanente de Rios de 50 até 200 metros",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -480,7 +480,7 @@ export const LAYER_TYPES = [
     id: "app_area_topo_morro",
     name: "Área de Preservação Permanente de Topos de Morro",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -490,7 +490,7 @@ export const LAYER_TYPES = [
     id: "app_vereda",
     name: "Área de Preservação Permanente de Veredas",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -500,7 +500,7 @@ export const LAYER_TYPES = [
     id: "app_vazio",
     name: "Área de Preservação Permanente em área antropizada não declarada como área consolidada",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -510,7 +510,7 @@ export const LAYER_TYPES = [
     id: "app_area_vn",
     name: "Área de Preservação Permanente em área de Vegetação Nativa",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
@@ -520,7 +520,7 @@ export const LAYER_TYPES = [
     id: "area_topo_morro",
     name: "Área de topo de morro",
     tipo_tema: "mult",
-    editable: true,
+    editable: false,
     required: false
   },
   {
