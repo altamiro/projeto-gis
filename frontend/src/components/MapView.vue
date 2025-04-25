@@ -2,16 +2,18 @@
   .map-container-wrapper
     // Header
     .map-header
-      .header-right
-        municipality-selector
       .header-center(v-if="municipalitySelected")
         layer-selector(:isMunicipalitySelected="municipalitySelected")
+      //- .header-right
+      //-   .municipality-info(v-if="municipalitySelected")
+      //-     el-tag(type="success") {{ municipality.name }}
+      //-     el-button(size="small" icon="el-icon-refresh" circle @click="changeMunicipality" :loading="loading")
     
     // Middle
     .map-container
       #mapViewDiv.map-view(
-        v-loading="!mapLoaded" 
-        element-loading-text="Carregando mapa..." 
+        v-loading="!mapLoaded || loading" 
+        :element-loading-text="loadingText" 
         element-loading-background="rgba(0, 0, 0, 0.7)"
       )
 
@@ -30,18 +32,20 @@
         validation-alert(
           v-for="alert in alerts"
           :key="alert.id"
+          :id="alert.id"
           :type="alert.type"
           :message="alert.message"
+          :duration="alert.duration"
+          @close="removeAlert"
         )
       .map-info
         .map-info-text(v-if="mapLoaded") 
-          | Sistema de Vetorização GIS - {{ municipalitySelected ? municipality.name : 'Selecione um município' }}
-  </template>
+          | Sistema de Vetorização GIS - {{ municipalitySelected ? municipality.name : 'Carregando município...' }}
+</template>
 
 <script>
-import { mapState, mapGetters } from 'vuex';
+import { mapState, mapGetters, mapActions } from 'vuex';
 import arcgisService from '../services/arcgis';
-import MunicipalitySelector from './MunicipalitySelector.vue';
 import LayerSelector from './LayerSelector.vue';
 import AreaCalculator from './AreaCalculator.vue';
 import ValidationAlert from './ValidationAlert.vue';
@@ -50,7 +54,6 @@ import MapToolbar from './MapToolbar.vue';
 export default {
   name: 'MapView',
   components: {
-    MunicipalitySelector,
     LayerSelector,
     AreaCalculator,
     ValidationAlert,
@@ -59,9 +62,14 @@ export default {
   data() {
     return {
       mapLoaded: false,
+      loading: false,
+      loadingText: 'Carregando mapa...',
       loadingError: null,
-      showSidebar: true,    // Nova propriedade para controlar a visibilidade da barra lateral
-      sidebarPosition: 'right'  // Posição da barra lateral (right ou left)
+      showSidebar: true,    // Propriedade para controlar a visibilidade da barra lateral
+      sidebarPosition: 'right',  // Posição da barra lateral (right ou left)
+      // Configuração do município padrão - poderia vir de config externa
+      defaultMunicipalityId: '3556909', // Vista Alegre do Alto
+      defaultMunicipalitySource: 'local'
     };
   },
   computed: {
@@ -75,6 +83,11 @@ export default {
     })
   },
   methods: {
+    ...mapActions({
+      loadMunicipalityById: 'property/loadMunicipalityById',
+      removeAlert: 'validation/removeAlert'
+    }),
+    
     // Método para alternar a visibilidade da barra lateral
     toggleSidebar(value) {
       this.showSidebar = value !== undefined ? value : !this.showSidebar;
@@ -83,19 +96,61 @@ export default {
     // Método para alternar a posição da barra lateral
     toggleSidebarPosition() {
       this.sidebarPosition = this.sidebarPosition === 'right' ? 'left' : 'right';
+    },
+    
+    // Método para carregar um município
+    async loadMunicipality(municipalityId, source = 'local') {
+      try {
+        this.loading = true;
+        this.loadingText = `Carregando município...`;
+        
+        const result = await this.loadMunicipalityById({ 
+          municipalityId, 
+          source 
+        });
+        
+        if (!result.success) {
+          throw new Error(`Falha ao carregar o município com ID ${municipalityId}`);
+        }
+        
+        return true;
+      } catch (error) {
+        console.error('Erro ao carregar município:', error);
+        this.$store.dispatch('validation/addAlert', {
+          type: 'error',
+          message: `Erro ao carregar município: ${error.message || 'Erro desconhecido'}`
+        });
+        return false;
+      } finally {
+        this.loading = false;
+      }
+    },
+    
+    // Para futuras implementações - permitir mudar o município
+    async changeMunicipality() {
+      // Aqui você poderia abrir um diálogo para selecionar outro município
+      // ou implementar outra lógica de seleção
+      
+      // Por enquanto, apenas recarrega o município padrão
+      await this.loadMunicipality(this.defaultMunicipalityId, this.defaultMunicipalitySource);
     }
   },
   async mounted() {
     try {
       // Inicializar o mapa
+      this.loadingText = 'Inicializando mapa...';
       await arcgisService.initializeMap('mapViewDiv');
       this.mapLoaded = true;
 
       // Adicionar feedback de sucesso
       this.$store.dispatch('validation/addAlert', {
         type: 'info',
-        message: 'Mapa carregado com sucesso. Selecione um município para começar.'
+        message: 'Mapa carregado com sucesso. Carregando município...'
       });
+      
+      // Carregar automaticamente o município padrão
+      await this.loadMunicipality(this.defaultMunicipalityId, this.defaultMunicipalitySource);
+      
     } catch (error) {
       console.error('Erro ao inicializar o mapa:', error);
       this.loadingError = error.message || 'Erro desconhecido';
@@ -141,6 +196,17 @@ export default {
     justify-content: center;
     width: 100%;
   }
+  
+  .municipality-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    
+    .el-tag {
+      font-size: 14px;
+      padding: 6px 12px;
+    }
+  }
 }
 
 .map-container {
@@ -157,11 +223,19 @@ export default {
 .floating-tools {
   position: absolute;
   top: 20px;
-  right: 10px;
   z-index: $z-index-dropdown;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  transition: right 0.3s ease, left 0.3s ease;
+  
+  &.floating-tools-right {
+    right: 10px;
+  }
+  
+  &.floating-tools-left {
+    left: 60px; // Espaço para a barra de ferramentas vertical
+  }
 }
 
 .map-footer {
@@ -206,24 +280,6 @@ export default {
     .header-right {
       padding-right: 5px;
     }
-  }
-}
-
-.floating-tools {
-  position: absolute;
-  top: 20px;
-  z-index: $z-index-dropdown;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  transition: right 0.3s ease, left 0.3s ease;
-  
-  &.floating-tools-right {
-    right: 10px;
-  }
-  
-  &.floating-tools-left {
-    left: 60px; // Espaço para a barra de ferramentas vertical
   }
 }
 </style>

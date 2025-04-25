@@ -1,4 +1,5 @@
 import arcgisService from '../../services/arcgis';
+import municipalityData from '../../dados/geojs-35-mun.json';
 
 export default {
   namespaced: true,
@@ -75,6 +76,61 @@ export default {
         return { success: false };
       }
     },
+    
+    /**
+     * Carrega um município pelo ID
+     * @param {Object} context - Contexto do Vuex
+     * @param {Object} options - Objeto com as opções
+     * @param {String} options.municipalityId - ID do município
+     * @param {String} options.source - Fonte dos dados (default: 'local')
+     * @returns {Promise} Uma promessa com o resultado da operação
+     */
+    async loadMunicipalityById({ dispatch }, { municipalityId, source = 'local' }) {
+      try {
+        let municipality = null;
+        
+        // Fonte local (arquivo JSON)
+        if (source === 'local') {
+          municipality = municipalityData.features.find(
+            feature => feature.properties.id === municipalityId
+          );
+          
+          if (!municipality) {
+            throw new Error(`Município com ID "${municipalityId}" não encontrado no arquivo local.`);
+          }
+          
+          // Formatar o objeto do município conforme esperado pelo setMunicipality
+          municipality = {
+            id: municipality.properties.id,
+            name: municipality.properties.name,
+            geometry: municipality.geometry
+          };
+        } 
+        // Adicionar outras fontes (REST API, etc) aqui no futuro
+        else if (source === 'api') {
+          // Implementação futura para buscar dados da API
+          // const response = await fetch(`/api/municipalities/${municipalityId}`);
+          // municipality = await response.json();
+          throw new Error('Fonte de dados "api" ainda não implementada.');
+        } else {
+          throw new Error(`Fonte de dados "${source}" não reconhecida.`);
+        }
+        
+        // Chamar setMunicipality com o município encontrado
+        return dispatch('setMunicipality', municipality);
+      } catch (error) {
+        console.error('Erro ao carregar município por ID:', error);
+        
+        // Adicionar alerta de erro
+        dispatch('validation/addAlert', {
+          type: 'error',
+          message: `Erro ao carregar município: ${error.message || 'Erro desconhecido'}`
+        }, { root: true });
+        
+        return { success: false };
+      }
+    },
+    
     calculateNetarea_imovel({ commit, rootState }) {
       const area_imovel = rootState.layers.layers.find(l => l.id === 'area_imovel')?.area || 0;
       const area_servidao_administrativa_totals = rootState.layers.layers

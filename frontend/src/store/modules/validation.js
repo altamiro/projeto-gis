@@ -8,7 +8,7 @@ export default {
     ADD_ALERT(state, alert) {
       state.alerts.push({
         ...alert,
-        id: Date.now(),
+        id: alert.id || Date.now(),
         timestamp: new Date().toISOString()
       });
     },
@@ -26,14 +26,27 @@ export default {
     }
   },
   actions: {
-    addAlert({ commit }, alert) {
-      commit('ADD_ALERT', alert);
+    addAlert({ commit, dispatch }, alert) {
+      // Configurar a duração padrão de acordo com o tipo de alerta
+      const alertWithDuration = {
+        ...alert,
+        duration: alert.duration !== undefined ? alert.duration : getDefaultDuration(alert.type)
+      };
       
-      // Auto-remover o alerta após 5 segundos
-      setTimeout(() => {
-        commit('REMOVE_ALERT', alert.id);
-      }, 5000);
+      commit('ADD_ALERT', alertWithDuration);
+      
+      // Se a duração for especificada e maior que zero, configurar o auto-fechamento
+      if (alertWithDuration.duration > 0) {
+        setTimeout(() => {
+          dispatch('removeAlert', alertWithDuration.id);
+        }, alertWithDuration.duration);
+      }
     },
+    
+    removeAlert({ commit }, alertId) {
+      commit('REMOVE_ALERT', alertId);
+    },
+    
     validatePropertyCoverage({ commit, rootState, rootGetters }) {
       const isFullyCovered = rootGetters['layers/isPropertyFullyCovered'];
       
@@ -50,3 +63,19 @@ export default {
     }
   }
 };
+
+// Função auxiliar para determinar a duração padrão com base no tipo de alerta
+function getDefaultDuration(type) {
+  switch (type) {
+    case 'success':
+      return 3000; // 3 segundos
+    case 'info':
+      return 5000; // 5 segundos
+    case 'warning':
+      return 7000; // 7 segundos
+    case 'error':
+      return 10000; // 10 segundos (erros ficam mais tempo)
+    default:
+      return 5000; // Padrão
+  }
+}
