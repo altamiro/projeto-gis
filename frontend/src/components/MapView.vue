@@ -4,10 +4,6 @@
     .map-header
       .header-center(v-if="municipalitySelected")
         layer-selector(:isMunicipalitySelected="municipalitySelected")
-      //- .header-right
-      //-   .municipality-info(v-if="municipalitySelected")
-      //-     el-tag(type="success") {{ municipality.name }}
-      //-     el-button(size="small" icon="el-icon-refresh" circle @click="changeMunicipality" :loading="loading")
     
     // Middle
     .map-container
@@ -168,7 +164,12 @@ export default {
 };
 </script>
 
-<style lang="scss">
+<style lang="scss" scoped>
+// Z-index variables
+$z-index-dropdown: 1000;
+$z-index-modal: 1050;
+$z-index-tooltip: 1100;
+
 .map-container-wrapper {
   display: flex;
   flex-direction: column;
@@ -213,9 +214,18 @@ export default {
   flex: 1;
   position: relative;
   width: 100%;
+  height: 100%;
 }
 
 .map-view {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+#mapViewDiv {
   width: 100%;
   height: 100%;
 }
@@ -264,7 +274,7 @@ export default {
   }
 }
 
-// Estilo personalizado para o indicador de carregamento
+// Aplicar estilo ao componente de carregamento do Element UI
 .el-loading-mask {
   z-index: $z-index-modal;
 }
@@ -275,7 +285,8 @@ export default {
   margin-top: 10px;
 }
 
-@include respond-to(xs) {
+// Media queries
+@media (max-width: 576px) {
   .map-header {
     .header-right {
       padding-right: 5px;

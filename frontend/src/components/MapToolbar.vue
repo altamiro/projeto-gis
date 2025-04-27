@@ -1093,7 +1093,12 @@ export default {
 };
 </script>
 
-<style lang="scss">
+<style lang="scss" scoped>
+/* Component-specific variables */
+$edit-color: #ff9800;      /* Orange for editing */
+$cut-color: #f56c6c;       /* Red for cutting */
+$warning-color: #e6a23c;   /* Yellow for warnings */
+
 .map-toolbar-container {
   position: absolute;
   top: 10px;
@@ -1122,12 +1127,9 @@ export default {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
   font-size: 14px;
   display: inline-block;
-  /* This makes the width adjust to content */
   min-width: 40vw;
-  /* Optional: prevents extremely long text */
 }
 
-/* Resto do CSS permanece o mesmo */
 .map-toolbar {
   background-color: white;
   border-radius: 4px;
@@ -1152,9 +1154,7 @@ export default {
   display: flex;
   flex-direction: column;
   align-items: center;
-  /* Centraliza os itens */
   width: 100%;
-  /* Ocupa toda a largura do container pai */
   gap: 3px;
 
   &:not(:last-child) {
@@ -1189,9 +1189,7 @@ export default {
     justify-content: center;
     align-items: center;
     width: 100%;
-    /* Garante que o ícone ocupe todo o espaço */
     height: 100%;
-    /* Garante que o ícone ocupe todo o espaço */
   }
 }
 
@@ -1200,7 +1198,6 @@ export default {
   top: 10px;
   left: 60px;
   z-index: 1500;
-  /* Um pouco menor que a barra de ferramentas */
   pointer-events: auto;
 }
 
@@ -1221,7 +1218,7 @@ export default {
   }
 }
 
-/* Responsividade - usando media queries diretamente em vez de mixins */
+/* Media queries for responsive design */
 @media (max-width: 768px) {
   .map-toolbar-container {
     left: 5px;
@@ -1237,7 +1234,6 @@ export default {
 }
 
 .map-toolbar .el-button {
-  /* Reset de posicionamento */
   position: static !important;
   float: none !important;
   margin: 0 auto !important;
@@ -1245,10 +1241,8 @@ export default {
   right: auto !important;
 }
 
-.delete-dialog {
-  .el-dialog {
-    z-index: 99999 !important;
-  }
+.delete-dialog .el-dialog {
+  z-index: 99999 !important;
 }
 
 .cut-instructions {
@@ -1277,6 +1271,65 @@ export default {
   .cut-info {
     p {
       margin: 10px 0;
+    }
+  }
+}
+
+/* Tool-specific styles */
+.el-icon-scissors {
+  transform: rotate(90deg);
+}
+
+.edit-polygon {
+  cursor: move;
+  
+  .vertex {
+    cursor: pointer;
+    
+    &:hover {
+      fill: $edit-color;
+    }
+  }
+}
+
+/* Tooltip styles */
+.custom-tooltip {
+  position: absolute;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  z-index: 3000;
+  pointer-events: none;
+  max-width: 300px;
+  transition: opacity 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  
+  &.hidden {
+    opacity: 0;
+  }
+}
+
+/* Card styles for cut instructions */
+.cut-instructions-card {
+  background-color: rgba(255, 255, 255, 0.95);
+  border: 2px solid $cut-color;
+  max-width: 300px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  
+  .card-header {
+    color: $cut-color;
+    font-weight: bold;
+  }
+  
+  .instructions-content {
+    padding: 10px;
+    font-size: 14px;
+    line-height: 1.5;
+    
+    p {
+      margin-bottom: 8px;
     }
   }
 }

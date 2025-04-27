@@ -21,6 +21,7 @@ export default {
   padding: 0;
 }
 
+/* Basic essential styles - these need to be global to ensure proper map display */
 body,
 html {
   margin: 0;

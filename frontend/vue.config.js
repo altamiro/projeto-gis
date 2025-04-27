@@ -29,9 +29,12 @@ module.exports = defineConfig({
 
   css: {
     loaderOptions: {
-      // Configuração atualizada para a sintaxe moderna do Sass
       scss: {
-        additionalData: `@use "@/assets/styles/index" as *;`,
+        additionalData: `
+          $z-index-dropdown: 1000;
+          $z-index-modal: 1050;
+          $z-index-tooltip: 1100;
+        `,
       },
     },
   },

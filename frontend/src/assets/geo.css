@@ -1,0 +1,75 @@
+/* Essential global styles for ArcGIS map to function properly */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  font-family: Avenir, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Essential ArcGIS map view styles */
+.esri-view {
+  height: 100%;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+}
+
+/* Element UI compatibility overrides */
+.el-loading-mask {
+  z-index: 1050 !important;
+}
+
+.el-loading-text {
+  color: white;
+  font-size: 16px;
+  margin-top: 10px;
+}
+
+/* ArcGIS map-specific elements */
+.esri-view-surface--inset-outline:focus::after {
+  outline: none !important;
+}
+
+.esri-view .esri-view-surface::after {
+  outline: none !important;
+}
+
+/* Popup styling */
+.esri-popup__main-container {
+  max-width: 300px;
+}
+
+.esri-popup__header {
+  background-color: #409EFF;
+}
+
+.esri-popup__header-title {
+  font-weight: bold;
+  color: white;
+}
+
+/* Popup for centroids */
+.esri-popup--centroid .esri-popup__main-container {
+  max-width: 200px;
+}
+
+.municipality-tooltip {
+  position: absolute;
+  background-color: white;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-size: 14px;
+  pointer-events: none;
+  z-index: 1000;
+  opacity: 0;
+  transition: opacity 0.3s;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+}
+
+.municipality-tooltip.visible {
+  opacity: 1;
+}

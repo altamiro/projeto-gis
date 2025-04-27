@@ -88,7 +88,10 @@ export default {
 };
 </script>
 
-<style lang="scss">
+<style lang="scss" scoped>
+/* Component-specific variables */
+$font-size-base: 14px;
+
 .area-calculator-card {
   width: 300px;
   margin-top: 10px;

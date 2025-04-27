@@ -15,7 +15,7 @@ export default {
 };
 </script>
 
-<style lang="scss">
+<style lang="scss" scoped>
 .geo-screen {
   width: 100%;
   height: 100vh;
@@ -25,8 +25,11 @@ export default {
 .map-container {
   width: 100%;
   height: 100%;
+}
 
-  @include respond-to(xs) {
+/* Media query for responsiveness */
+@media (max-width: 576px) {
+  .map-container {
     height: calc(100vh - 60px);
   }
 }

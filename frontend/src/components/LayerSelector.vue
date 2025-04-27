@@ -135,7 +135,7 @@ export default {
 };
 </script>
 
-<style lang="scss">
+<style lang="scss" scoped>
 .layer-selector-container {
   width: 100%;
   overflow: hidden;
@@ -194,7 +194,7 @@ export default {
   position: relative;
 }
 
-.box-dropdown ::v-deep .el-input__inner {
+.box-dropdown .el-input__inner {
   background-color: #F2F2F2 !important;
   border: 1px solid #ddd;
   border-radius: 8px;
@@ -233,7 +233,7 @@ export default {
   }
 }
 
-/* Responsivo */
+/* Responsive design */
 @media (max-width: 992px) {
   .selection-row {
     flex-wrap: wrap;
