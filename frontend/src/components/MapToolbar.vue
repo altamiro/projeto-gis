@@ -6,38 +6,38 @@
           el-button(
             :class="{ active: currentTool === 'pan' }"
             @click="setTool('pan')"
-            size="small"
+            size="medium"
             icon="el-icon-rank"
           )
         el-tooltip(:content="getPolygonTooltip()" placement="right")
           el-button(
             :class="{ active: currentTool === 'polygon' }"
             @click="setTool('polygon')"
-            size="small"
-            icon="el-icon-s-grid"
+            size="medium"
+            icon="el-icon-crop"
             :disabled="!canDrawPolygon"
           )
         el-tooltip(:content="getPointTooltip()" placement="right")
           el-button(
             :class="{ active: currentTool === 'point' }"
             @click="setTool('point')"
-            size="small"
-            icon="el-icon-location-information"
+            size="medium"
+            icon="el-icon-location-outline"
             :disabled="!canDrawPoint"
           )
         el-tooltip(:content="getLineTooltip()" placement="right")
           el-button(
             :class="{ active: currentTool === 'line' }"
             @click="setTool('line')"
-            size="small"
-            icon="el-icon-set-up"
+            size="medium"
+            icon="el-icon-minus"
             :disabled="!canDrawLine"
           )
         el-tooltip(:content="getEditTooltip()" placement="right")
           el-button(
             :class="{ active: currentTool === 'edit' }"
             @click="setTool('edit')"
-            size="small"
+            size="medium"
             icon="el-icon-edit-outline"
             :disabled="!canEditGeometry"
           )
@@ -45,7 +45,7 @@
           el-button(
             :class="{ active: currentTool === 'cut' }"
             @click="setTool('cut')"
-            size="small"
+            size="medium"
             icon="el-icon-scissors"
             :disabled="!canCutGeometry"
           )
@@ -53,7 +53,7 @@
           el-button(
             :class="{ active: currentTool === 'erase' }"
             @click="confirmDelete"
-            size="small"
+            size="medium"
             icon="el-icon-delete"
             :disabled="!canDeleteGeometry"
           )
@@ -62,34 +62,34 @@
           el-button(
             :class="{ active: currentTool === 'measure' }"
             @click="setTool('measure')"
-            size="small"
-            icon="el-icon-ruler"
+            size="medium"
+            icon="el-icon-discover"
           )
 
       .toolbar-group.zoom-tools
         el-tooltip(content="Aproximar (Zoom In)" placement="right")
           el-button(
             @click="zoomIn"
-            size="small"
+            size="medium"
             icon="el-icon-zoom-in"
           )
         el-tooltip(content="Afastar (Zoom Out)" placement="right")
           el-button(
             @click="zoomOut"
-            size="small"
+            size="medium"
             icon="el-icon-zoom-out"
           )
         el-tooltip(content="Ajustar à seleção" placement="right")
           el-button(
             @click="zoomToSelection"
-            size="small"
+            size="medium"
             icon="el-icon-full-screen"
             :disabled="!hasSelectedLayer"
           )
         el-tooltip(content="Ajustar ao município" placement="right")
           el-button(
             @click="zoomToMunicipality"
-            size="small"
+            size="medium"
             icon="el-icon-position"
             :disabled="!municipalitySelected"
           )
