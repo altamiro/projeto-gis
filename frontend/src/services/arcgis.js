@@ -1939,6 +1939,95 @@ export class ArcGISService {
       return newGeometry;
     });
   }
+
+  /**
+   * Converte uma geometria ArcGIS para formato GeoJSON
+   * @param {Object} arcgisGeometry - Geometria no formato ArcGIS
+   * @returns {Object} Geometria no formato GeoJSON
+   */
+  toGeoJSON(arcgisGeometry) {
+    if (!arcgisGeometry) return null;
+
+    try {
+      let geoJsonGeometry = null;
+
+      // Converter com base no tipo de geometria
+      switch (arcgisGeometry.type) {
+        case "point":
+          geoJsonGeometry = {
+            type: "Point",
+            coordinates: [arcgisGeometry.x, arcgisGeometry.y],
+          };
+          break;
+
+        case "polyline":
+          geoJsonGeometry = {
+            type: "LineString",
+            coordinates: arcgisGeometry.paths[0].map((vertex) => [
+              vertex[0],
+              vertex[1],
+            ]),
+          };
+          // Verificar se há múltiplos caminhos (multipolyline)
+          if (arcgisGeometry.paths.length > 1) {
+            geoJsonGeometry = {
+              type: "MultiLineString",
+              coordinates: arcgisGeometry.paths.map((path) =>
+                path.map((vertex) => [vertex[0], vertex[1]])
+              ),
+            };
+          }
+          break;
+
+        case "polygon":
+        case "extent":
+          // Converter rings para o formato GeoJSON
+          // No GeoJSON, o primeiro ring é o exterior, os demais são buracos
+          const rings = arcgisGeometry.rings.map((ring) =>
+            ring.map((vertex) => [vertex[0], vertex[1]])
+          );
+
+          // Se tiver apenas um ring, é um polígono simples
+          if (rings.length === 1) {
+            geoJsonGeometry = {
+              type: "Polygon",
+              coordinates: rings,
+            };
+          } else {
+            // Verificar se é um polígono com buracos ou múltiplos polígonos
+            // Essa lógica é simplificada - em um caso real, seria necessário
+            // verificar a orientação dos rings para diferenciar exteriores de buracos
+            geoJsonGeometry = {
+              type: "MultiPolygon",
+              coordinates: [rings],
+            };
+          }
+          break;
+
+        default:
+          console.warn(
+            `Tipo de geometria não suportado para conversão: ${arcgisGeometry.type}`
+          );
+          return null;
+      }
+
+      // Se a geometria ArcGIS tem sistema de referência, incluir no GeoJSON
+      if (arcgisGeometry.spatialReference) {
+        // Adicionar o CRS ao GeoJSON conforme a especificação
+        geoJsonGeometry.crs = {
+          type: "name",
+          properties: {
+            name: `EPSG:${arcgisGeometry.spatialReference.wkid}`,
+          },
+        };
+      }
+
+      return geoJsonGeometry;
+    } catch (error) {
+      console.error("Erro ao converter geometria para GeoJSON:", error);
+      return null;
+    }
+  }
 }
 
 export default new ArcGISService();

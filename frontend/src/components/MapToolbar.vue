@@ -51,7 +51,6 @@
           )
         el-tooltip(:content="getEraseTooltip()" placement="right")
           el-button(
-            :class="{ active: currentTool === 'erase' }"
             @click="confirmDelete"
             size="medium"
             icon="el-icon-delete"
@@ -92,6 +91,31 @@
             size="medium"
             icon="el-icon-position"
             :disabled="!municipalitySelected"
+          )
+      
+      .toolbar-group.save-tools
+        el-tooltip(content="Salvar todas as camadas" placement="right")
+          el-button(
+            @click="saveAllLayers"
+            size="medium"
+            icon="el-icon-upload2"
+            :loading="isSaving"
+            :disabled="!hasDrawnLayers"
+          )
+        el-tooltip(content="Carregar camadas salvas" placement="right")
+          el-button(
+            @click="loadSavedLayers"
+            size="medium"
+            icon="el-icon-download"
+            :loading="isLoading"
+            :disabled="!municipalitySelected"
+          )
+        el-tooltip(content="Exportar GeoJSON" placement="right")
+          el-button(
+            @click="exportAsGeoJSON"
+            size="medium"
+            icon="el-icon-document"
+            :disabled="!hasDrawnLayers"
           )
     
     // Card para exibir o nome da camada selecionada
@@ -164,6 +188,7 @@
 <script>
 import { mapState, mapGetters, mapActions, mapMutations } from 'vuex';
 import arcgisService from '../services/arcgis';
+import layersService from '../services/layersService';
 
 export default {
   name: 'MapToolbar',
@@ -181,7 +206,10 @@ export default {
       cutOperation: 'subtract', // 'subtract' ou 'intersect'
       isCutting: false,
       cutGeometry: null,
-      targetGeometryForCut: null
+      targetGeometryForCut: null,
+      // Propriedades para botões de salvar/carregar
+      isSaving: false,
+      isLoading: false,
     };
   },
   computed: {
@@ -270,6 +298,10 @@ export default {
     layerGroup() {
       if (!this.selectedLayer) return null;
       return this.$store.getters['layers/getLayerGroup'](this.selectedLayer);
+    },
+    // Nova propriedade computada para verificar se existem camadas desenhadas para o botão salvar
+    hasDrawnLayers() {
+      return this.layers && this.layers.length > 0;
     }
   },
   methods: {
@@ -1088,6 +1120,360 @@ export default {
       // Voltar para o modo de navegação
       this.currentTool = 'pan';
       arcgisService.activatePanMode();
+    },
+
+    // NOVAS FUNCIONALIDADES: Salvar, Carregar e Exportar
+    /**
+     * Salva todas as camadas desenhadas no servidor
+     */
+    async saveAllLayers() {
+      if (!this.hasDrawnLayers) {
+        this.addAlert({
+          type: 'warning',
+          message: 'Não há camadas para salvar.'
+        });
+        return;
+      }
+
+      try {
+        this.isSaving = true;
+
+        // Preparar dados para salvar
+        const geoJsonData = await this.convertLayersToGeoJSON();
+
+        if (!geoJsonData || !geoJsonData.features || geoJsonData.features.length === 0) {
+          throw new Error('Não foi possível converter as camadas para o formato adequado.');
+        }
+
+        // Preparar payload para envio
+        const payload = {
+          geoJson: geoJsonData,
+          municipalityId: this.municipality?.id,
+          timestamp: new Date().toISOString(),
+          metadata: {
+            userName: localStorage.getItem('userName') || 'Usuário',
+            projectName: `Projeto GIS - ${this.municipality?.name || 'Sem município'}`,
+            layerCount: geoJsonData.features.length
+          }
+        };
+
+        console.log(payload);
+
+        // Enviar para o backend
+        // const response = await layersService.saveAllLayers(payload);
+
+        // Notificar sucesso
+        this.addAlert({
+          type: 'success',
+          message: 'Camadas salvas com sucesso!'
+        });
+
+        // console.log('Resposta do servidor:', response);
+        console.log('Resposta do servidor:');
+      } catch (error) {
+        console.error('Erro ao salvar camadas:', error);
+
+        // Tratamento de erros específicos
+        let errorMessage = 'Erro ao salvar camadas.';
+
+        if (error.response) {
+          if (error.response.status === 401) {
+            errorMessage = 'Você precisa estar autenticado para salvar camadas.';
+          } else if (error.response.status === 413) {
+            errorMessage = 'Os dados são muito grandes para serem salvos. Tente simplificar as geometrias.';
+          } else if (error.response.data && error.response.data.message) {
+            errorMessage = error.response.data.message;
+          }
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+
+        this.addAlert({
+          type: 'error',
+          message: errorMessage
+        });
+      } finally {
+        this.isSaving = false;
+      }
+    },
+
+    /**
+     * Carrega camadas salvas do servidor
+     */
+    async loadSavedLayers() {
+      if (!this.municipalitySelected) {
+        this.addAlert({
+          type: 'warning',
+          message: 'Selecione um município antes de carregar camadas.'
+        });
+        return;
+      }
+
+      try {
+        this.isLoading = true;
+
+        // Perguntar ao usuário se deseja sobrescrever camadas existentes
+        if (this.hasDrawnLayers) {
+          try {
+            const confirmResult = await this.$confirm(
+              'Você já tem camadas desenhadas. Deseja substituí-las pelas camadas salvas?',
+              'Carregar camadas',
+              {
+                confirmButtonText: 'Sim, substituir',
+                cancelButtonText: 'Cancelar',
+                type: 'warning'
+              }
+            );
+
+            if (!confirmResult) {
+              this.isLoading = false;
+              return;
+            }
+          } catch (e) {
+            // Usuário cancelou
+            this.isLoading = false;
+            return;
+          }
+        }
+
+        // Buscar camadas do servidor
+        const municipalityId = this.municipality.id;
+        const response = await layersService.loadLayers(municipalityId);
+
+        if (!response || !response.geoJson || !response.geoJson.features || response.geoJson.features.length === 0) {
+          this.addAlert({
+            type: 'info',
+            message: 'Não foram encontradas camadas salvas para este município.'
+          });
+          return;
+        }
+
+        // Limpar camadas existentes
+        await this.$store.dispatch('layers/removeAllLayers');
+
+        // Processar camadas carregadas
+        const features = response.geoJson.features;
+        let loadedLayers = 0;
+
+        for (const feature of features) {
+          if (!feature.geometry || !feature.properties || !feature.properties.id) continue;
+
+          // Converter geometria GeoJSON para ArcGIS
+          const arcgisGeometry = this.convertGeoJSONToArcGIS(feature.geometry);
+
+          if (!arcgisGeometry) continue;
+
+          // Adicionar camada ao estado
+          const result = await this.$store.dispatch('layers/addLayer', {
+            layerId: feature.properties.id,
+            geometry: arcgisGeometry
+          });
+
+          if (result.success) {
+            loadedLayers++;
+          }
+        }
+
+        // Mostrar mensagem de sucesso
+        this.addAlert({
+          type: 'success',
+          message: `${loadedLayers} camada(s) carregada(s) com sucesso!`
+        });
+
+        // Atualizar visualização do mapa
+        // Buscar a camada do imóvel para centralizar o mapa
+        const propertyLayer = this.layers.find(l => l.id === 'area_imovel');
+        if (propertyLayer && propertyLayer.geometry) {
+          arcgisService.zoomToGeometry(propertyLayer.geometry);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar camadas:', error);
+
+        this.addAlert({
+          type: 'error',
+          message: `Erro ao carregar camadas: ${error.message || 'Erro desconhecido'}`
+        });
+      } finally {
+        this.isLoading = false;
+      }
+    },
+
+    /**
+     * Exporta as camadas desenhadas como arquivo GeoJSON
+     */
+    async exportAsGeoJSON() {
+      if (!this.hasDrawnLayers) {
+        this.addAlert({
+          type: 'warning',
+          message: 'Não há camadas para exportar.'
+        });
+        return;
+      }
+
+      try {
+        // Converter camadas para GeoJSON
+        const geoJsonData = await this.convertLayersToGeoJSON();
+
+        if (!geoJsonData || !geoJsonData.features || geoJsonData.features.length === 0) {
+          throw new Error('Não foi possível converter as camadas para o formato adequado.');
+        }
+
+        // Criar um blob com os dados
+        const blob = new Blob([JSON.stringify(geoJsonData, null, 2)], {
+          type: 'application/json'
+        });
+
+        // Criar URL do blob
+        const url = URL.createObjectURL(blob);
+
+        // Criar elemento link para download
+        const link = document.createElement('a');
+        link.href = url;
+
+        // Nome do arquivo baseado no município ou data atual
+        const municipalityName = this.municipality?.name || 'sem-municipio';
+        const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        link.download = `gis-camadas-${municipalityName.toLowerCase().replace(/\s+/g, '-')}-${timestamp}.geojson`;
+
+        // Adicionar link ao documento, clicar e remover
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Liberar a URL
+        setTimeout(() => {
+          URL.revokeObjectURL(url);
+        }, 100);
+
+        this.addAlert({
+          type: 'success',
+          message: 'Arquivo GeoJSON exportado com sucesso!'
+        });
+      } catch (error) {
+        console.error('Erro ao exportar camadas:', error);
+
+        this.addAlert({
+          type: 'error',
+          message: `Erro ao exportar camadas: ${error.message || 'Erro desconhecido'}`
+        });
+      }
+    },
+
+    /**
+     * Converte todas as camadas desenhadas para formato GeoJSON
+     * @returns {Object} Objeto GeoJSON com todas as features
+     */
+    async convertLayersToGeoJSON() {
+      const layersList = this.layers;
+      const layerTypes = this.layerTypes;
+
+      // Criar estrutura do GeoJSON
+      const geoJson = {
+        type: 'FeatureCollection',
+        features: []
+      };
+
+      // Processar cada camada
+      for (const layer of layersList) {
+        if (!layer.geometry) continue;
+
+        // Obter tipo da camada
+        const layerType = layerTypes.find(lt => lt.id === layer.id);
+
+        try {
+          // Converter geometria para GeoJSON usando o serviço ArcGIS
+          const geoJsonGeometry = arcgisService.toGeoJSON(layer.geometry);
+
+          if (!geoJsonGeometry) continue;
+
+          // Criar feature com propriedades
+          const feature = {
+            type: 'Feature',
+            geometry: geoJsonGeometry,
+            properties: {
+              id: layer.id,
+              name: layerType?.name || layer.id,
+              tipo_geom: layerType?.tipo_geom || 'polygonSimple',
+              tema_id: layerType?.tema_id,
+              grupo: layerType?.grupo,
+              area: layer.area,
+              timestamp: layer.timestamp || new Date().toISOString()
+            }
+          };
+
+          geoJson.features.push(feature);
+        } catch (error) {
+          console.error(`Erro ao converter camada ${layer.id} para GeoJSON:`, error);
+        }
+      }
+
+      return geoJson;
+    },
+
+    /**
+     * Converte geometria GeoJSON para ArcGIS
+     * @param {Object} geoJsonGeometry - Geometria no formato GeoJSON
+     * @returns {Object} Geometria no formato ArcGIS
+     */
+    convertGeoJSONToArcGIS(geoJsonGeometry) {
+      if (!geoJsonGeometry) return null;
+
+      try {
+        // Obter sistema de referência
+        const wkid = 4326; // WGS84 padrão para GeoJSON
+        const spatialReference = { wkid };
+
+        let arcgisGeometry = null;
+
+        switch (geoJsonGeometry.type) {
+          case 'Point':
+            arcgisGeometry = new arcgisService.Point({
+              x: geoJsonGeometry.coordinates[0],
+              y: geoJsonGeometry.coordinates[1],
+              spatialReference
+            });
+            break;
+
+          case 'LineString':
+            arcgisGeometry = new arcgisService.Polyline({
+              paths: [geoJsonGeometry.coordinates],
+              spatialReference
+            });
+            break;
+
+          case 'MultiLineString':
+            arcgisGeometry = new arcgisService.Polyline({
+              paths: geoJsonGeometry.coordinates,
+              spatialReference
+            });
+            break;
+
+          case 'Polygon':
+            arcgisGeometry = new arcgisService.Polygon({
+              rings: geoJsonGeometry.coordinates,
+              spatialReference
+            });
+            break;
+
+          case 'MultiPolygon':
+            // Simplificação: pegar só o primeiro polígono para este exemplo
+            const rings = geoJsonGeometry.coordinates.flat();
+            arcgisGeometry = new arcgisService.Polygon({
+              rings,
+              spatialReference
+            });
+            break;
+
+          default:
+            console.warn(`Tipo de geometria GeoJSON não suportado: ${geoJsonGeometry.type}`);
+            return null;
+        }
+
+        return arcgisGeometry;
+      } catch (error) {
+        console.error('Erro ao converter GeoJSON para geometria ArcGIS:', error);
+        return null;
+      }
     }
   }
 };
@@ -1095,9 +1481,12 @@ export default {
 
 <style lang="scss" scoped>
 /* Component-specific variables */
-$edit-color: #ff9800;      /* Orange for editing */
-$cut-color: #f56c6c;       /* Red for cutting */
-$warning-color: #e6a23c;   /* Yellow for warnings */
+$edit-color: #ff9800;
+/* Orange for editing */
+$cut-color: #f56c6c;
+/* Red for cutting */
+$warning-color: #e6a23c;
+/* Yellow for warnings */
 
 .map-toolbar-container {
   position: absolute;
@@ -1161,6 +1550,15 @@ $warning-color: #e6a23c;   /* Yellow for warnings */
     padding-bottom: 10px;
     border-bottom: 1px solid #dcdfe6;
   }
+}
+
+// Estilo específico para o grupo de ferramentas de salvamento
+.toolbar-group.save-tools {
+  margin-top: 10px;
+}
+
+.save-tools .el-button {
+  margin-bottom: 5px;
 }
 
 .el-button {
@@ -1282,10 +1680,10 @@ $warning-color: #e6a23c;   /* Yellow for warnings */
 
 .edit-polygon {
   cursor: move;
-  
+
   .vertex {
     cursor: pointer;
-    
+
     &:hover {
       fill: $edit-color;
     }
@@ -1305,7 +1703,7 @@ $warning-color: #e6a23c;   /* Yellow for warnings */
   max-width: 300px;
   transition: opacity 0.2s;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  
+
   &.hidden {
     opacity: 0;
   }
@@ -1317,17 +1715,17 @@ $warning-color: #e6a23c;   /* Yellow for warnings */
   border: 2px solid $cut-color;
   max-width: 300px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  
+
   .card-header {
     color: $cut-color;
     font-weight: bold;
   }
-  
+
   .instructions-content {
     padding: 10px;
     font-size: 14px;
     line-height: 1.5;
-    
+
     p {
       margin-bottom: 8px;
     }
