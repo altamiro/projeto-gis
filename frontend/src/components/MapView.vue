@@ -175,7 +175,7 @@ export default {
           timestamp: new Date().toISOString()
         };
 
-        console.log(payload);
+        console.log('Payload formatado para o backend:', payload);
 
         // Enviar dados para o servidor
         // const response = await layersService.saveAllLayers(payload);
@@ -189,26 +189,10 @@ export default {
         // console.log('Resposta do servidor:', response);
       } catch (error) {
         console.error('Erro ao salvar camadas:', error);
-
-        // // Tratar mensagens de erro específicas
-        // let errorMessage = 'Erro ao salvar camadas.';
-
-        // if (error.response) {
-        //   if (error.response.status === 401) {
-        //     errorMessage = 'Você precisa estar autenticado para salvar camadas.';
-        //   } else if (error.response.status === 413) {
-        //     errorMessage = 'Os dados são muito grandes para serem salvos. Tente simplificar as geometrias.';
-        //   } else if (error.response.data && error.response.data.message) {
-        //     errorMessage = error.response.data.message;
-        //   }
-        // } else if (error.message) {
-        //   errorMessage = error.message;
-        // }
-
-        // this.$store.dispatch('validation/addAlert', {
-        //   type: 'error',
-        //   message: errorMessage
-        // });
+        this.$store.dispatch('validation/addAlert', {
+          type: 'error',
+          message: 'Erro ao salvar camadas: ' + (error.message || 'Erro desconhecido')
+        });
       } finally {
         this.isSaving = false;
       }
@@ -247,18 +231,17 @@ export default {
 
           if (!geoJsonGeometry) continue;
 
-          // Criar feature GeoJSON com propriedades
+          // Criar feature GeoJSON com propriedades usando o novo formato de payload
           const feature = {
             type: 'Feature',
             geometry: geoJsonGeometry,
             properties: {
-              id: layer.id,
-              type: layer.type,
-              name: layerType?.name || layer.id,
-              tema_id: layerType?.tema_id,
-              tipo_geom: layerType?.tipo_geom,
-              area: layer.area,
-              timestamp: layer.timestamp || new Date().toISOString()
+              nomTema: layerType?.name || layer.id,
+              codTema: layer.id,
+              numArea: layer.area,
+              theGeom: JSON.stringify(geoJsonGeometry),
+              dataCriacao: layer.timestamp || new Date().toISOString(),
+              dataUltimaAtualizacao: new Date().toISOString()
             }
           };
 

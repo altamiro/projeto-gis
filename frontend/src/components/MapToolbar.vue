@@ -1386,18 +1386,17 @@ export default {
 
           if (!geoJsonGeometry) continue;
 
-          // Criar feature com propriedades
+          // Criar feature com propriedades usando o novo formato de payload
           const feature = {
             type: 'Feature',
             geometry: geoJsonGeometry,
             properties: {
-              id: layer.id,
-              name: layerType?.name || layer.id,
-              tipo_geom: layerType?.tipo_geom || 'polygonSimple',
-              tema_id: layerType?.tema_id,
-              grupo: layerType?.grupo,
-              area: layer.area,
-              timestamp: layer.timestamp || new Date().toISOString()
+              nomTema: layerType?.name || layer.id,
+              codTema: layer.id,
+              numArea: layer.area,
+              theGeom: JSON.stringify(geoJsonGeometry),
+              dataCriacao: layer.timestamp || new Date().toISOString(),
+              dataUltimaAtualizacao: new Date().toISOString()
             }
           };
 
