@@ -7,6 +7,7 @@ import Point from "@arcgis/core/geometry/Point";
 import SpatialReference from "@arcgis/core/geometry/SpatialReference";
 import Draw from "@arcgis/core/views/draw/Draw";
 import Polyline from "@arcgis/core/geometry/Polyline";
+import Sketch from "@arcgis/core/widgets/Sketch";
 import * as geometryEngine from "@arcgis/core/geometry/geometryEngine";
 import * as projection from "@arcgis/core/geometry/projection";
 import * as intersectionOperator from "@arcgis/core/geometry/operators/intersectionOperator";
@@ -36,6 +37,8 @@ export class ArcGISService {
     this.GraphicsLayer = GraphicsLayer; // Referência para criar novas camadas
     this.Graphic = Graphic; // Referência para criar novos gráficos
     this.geometryEngine = geometryEngine; // Referência para o motor de geometria
+    this.sketchWidget = null;
+    this.sketchLayer = null;
   }
 
   initializeMap(container) {
@@ -169,6 +172,78 @@ export class ArcGISService {
     this.initTooltip();
 
     return this.view.when();
+  }
+
+  initializeSketch() {
+    if (!this.view) {
+      console.error("View não está inicializada");
+      return null;
+    }
+
+    // Criar camada para o sketch se não existir
+    if (!this.sketchLayer) {
+      this.sketchLayer = new GraphicsLayer({
+        id: "sketch",
+        title: "Camada de Desenho",
+      });
+      this.map.add(this.sketchLayer);
+    }
+
+    // Criar widget Sketch se não existir
+    if (!this.sketchWidget) {
+      this.sketchWidget = new Sketch({
+        layer: this.sketchLayer,
+        view: this.view,
+        // Configurações de criação
+        creationMode: "single", // single, continuous, ou update
+        // Personalizar símbolos padrão
+        defaultCreateOptions: {
+          mode: "click", // click, freehand, ou hybrid
+          hasZ: false,
+        },
+      });
+    }
+
+    return this.sketchWidget;
+  }
+
+  // Método para ativar uma ferramenta específica do Sketch
+  activateSketchTool(tool) {
+    if (!this.sketchWidget) {
+      this.initializeSketch();
+    }
+
+    // Cancelar qualquer operação em andamento
+    this.sketchWidget.cancel();
+
+    // Ativar a ferramenta específica
+    switch (tool) {
+      case "sketch-point":
+        this.sketchWidget.create("point");
+        break;
+      case "sketch-polyline":
+        this.sketchWidget.create("polyline");
+        break;
+      case "sketch-polygon":
+        this.sketchWidget.create("polygon");
+        break;
+      default:
+        console.warn(`Ferramenta de sketch não reconhecida: ${tool}`);
+    }
+  }
+
+  // Método para cancelar operações do Sketch
+  cancelSketch() {
+    if (this.sketchWidget) {
+      this.sketchWidget.cancel();
+    }
+  }
+
+  // Método para limpar os desenhos do Sketch
+  clearSketch() {
+    if (this.sketchLayer) {
+      this.sketchLayer.removeAll();
+    }
   }
 
   // Método para carregar a projeção antecipadamente
@@ -1081,6 +1156,16 @@ export class ArcGISService {
     if (this.tooltip && this.tooltip.parentNode) {
       this.tooltip.parentNode.removeChild(this.tooltip);
       this.tooltip = null;
+    }
+
+    if (this.sketchWidget) {
+      this.sketchWidget.destroy();
+      this.sketchWidget = null;
+    }
+
+    if (this.sketchLayer) {
+      this.map.remove(this.sketchLayer);
+      this.sketchLayer = null;
     }
   }
 

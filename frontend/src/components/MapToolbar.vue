@@ -56,6 +56,37 @@
             icon="el-icon-delete"
             :disabled="!canDeleteGeometry"
           )
+
+        .toolbar-group.sketch-tools
+          el-tooltip(content="Desenhar Ponto (Sketch)" placement="right")
+            el-button(
+              :class="{ active: currentTool === 'sketch-point' }"
+              @click="setTool('sketch-point')"
+              size="medium"
+              icon="el-icon-map-location"
+            )
+          el-tooltip(content="Desenhar Linha (Sketch)" placement="right")
+            el-button(
+              :class="{ active: currentTool === 'sketch-polyline' }"
+              @click="setTool('sketch-polyline')"
+              size="medium"
+              icon="el-icon-connection"
+            )
+          el-tooltip(content="Desenhar Polígono (Sketch)" placement="right")
+            el-button(
+              :class="{ active: currentTool === 'sketch-polygon' }"
+              @click="setTool('sketch-polygon')"
+              size="medium"
+              icon="el-icon-full-screen"
+            )
+          el-tooltip(content="Limpar Sketch" placement="right")
+            el-button(
+              @click="clearSketch"
+              size="medium"
+              icon="el-icon-brush"
+              :disabled="!hasSketchGraphics"
+            )
+
       .toolbar-group.measure-tools
         el-tooltip(content="Medir distância/área" placement="right")
           el-button(
@@ -210,7 +241,13 @@ export default {
       // Propriedades para botões de salvar/carregar
       isSaving: false,
       isLoading: false,
+      hasSketchGraphics: false,
+      sketchEventHandlers: []
     };
+  },
+  beforeDestroy() {
+    // Limpar event handlers do sketch
+    this.clearSketchEventHandlers();
   },
   computed: {
     ...mapState({
@@ -362,6 +399,11 @@ export default {
         case 'cut':
           // A ferramenta de recorte é tratada separadamente
           break;
+        case 'sketch-point':
+        case 'sketch-polyline':
+        case 'sketch-polygon':
+          this.startSketch(tool);
+          break;
         default:
           arcgisService.activatePanMode();
       }
@@ -386,6 +428,12 @@ export default {
           break;
         case 'cut':
           this.cancelCutOperation();
+          break;
+        case 'sketch-point':
+        case 'sketch-polyline':
+        case 'sketch-polygon':
+          arcgisService.cancelSketch();
+          this.clearSketchEventHandlers();
           break;
       }
     },
@@ -1473,7 +1521,106 @@ export default {
         console.error('Erro ao converter GeoJSON para geometria ArcGIS:', error);
         return null;
       }
+    },
+
+    startSketch(sketchTool) {
+      try {
+        // Inicializar o sketch se necessário
+        const sketch = arcgisService.initializeSketch();
+
+        if (!sketch) {
+          this.addAlert({
+            type: 'error',
+            message: 'Não foi possível inicializar a ferramenta de desenho.'
+          });
+          this.currentTool = 'pan';
+          return;
+        }
+
+        // Limpar event handlers anteriores
+        this.clearSketchEventHandlers();
+
+        // Adicionar event handlers para o sketch
+        const createHandler = sketch.on('create', (event) => {
+          if (event.state === 'complete') {
+            this.handleSketchComplete(event);
+          }
+        });
+
+        const updateHandler = sketch.on('update', () => {
+          this.updateSketchGraphicsStatus();
+        });
+
+        const deleteHandler = sketch.on('delete', () => {
+          this.updateSketchGraphicsStatus();
+        });
+
+        this.sketchEventHandlers = [createHandler, updateHandler, deleteHandler];
+
+        // Ativar a ferramenta específica
+        arcgisService.activateSketchTool(sketchTool);
+
+        // Atualizar status
+        this.updateSketchGraphicsStatus();
+
+      } catch (error) {
+        console.error('Erro ao iniciar sketch:', error);
+        this.addAlert({
+          type: 'error',
+          message: 'Ocorreu um erro ao iniciar a ferramenta de desenho.'
+        });
+        this.currentTool = 'pan';
+      }
+    },
+
+    handleSketchComplete(event) {
+      // Aqui você pode processar a geometria criada
+      console.log('Geometria criada:', event.graphic);
+
+      // Mostrar mensagem de sucesso
+      this.addAlert({
+        type: 'success',
+        message: `${this.getGeometryTypeName(event.graphic.geometry.type)} criado com sucesso.`
+      });
+
+      // Atualizar status
+      this.updateSketchGraphicsStatus();
+    },
+
+    getGeometryTypeName(type) {
+      const typeNames = {
+        'point': 'Ponto',
+        'polyline': 'Linha',
+        'polygon': 'Polígono'
+      };
+      return typeNames[type] || 'Geometria';
+    },
+
+    clearSketch() {
+      arcgisService.clearSketch();
+      this.updateSketchGraphicsStatus();
+
+      this.addAlert({
+        type: 'info',
+        message: 'Desenhos removidos.'
+      });
+    },
+
+    updateSketchGraphicsStatus() {
+      // Verificar se há gráficos na camada sketch
+      const sketchLayer = arcgisService.sketchLayer;
+      this.hasSketchGraphics = sketchLayer && sketchLayer.graphics.length > 0;
+    },
+
+    clearSketchEventHandlers() {
+      this.sketchEventHandlers.forEach(handler => {
+        if (handler && handler.remove) {
+          handler.remove();
+        }
+      });
+      this.sketchEventHandlers = [];
     }
+
   }
 };
 </script>
@@ -1706,6 +1853,13 @@ $warning-color: #e6a23c;
   &.hidden {
     opacity: 0;
   }
+}
+
+.toolbar-group.sketch-tools {
+  background-color: rgba(#409EFF, 0.05);
+  padding: 8px 4px;
+  border-radius: 4px;
+  margin: 5px 0;
 }
 
 /* Card styles for cut instructions */

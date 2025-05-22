@@ -25,6 +25,7 @@
   },
   "devDependencies": {
     "@babel/plugin-transform-class-static-block": "^7.26.0",
+    "@babel/plugin-transform-private-methods": "^7.26.0",
     "@vue/cli-plugin-babel": "~5.0.0",
     "@vue/cli-plugin-eslint": "~5.0.0",
     "@vue/cli-plugin-router": "~5.0.0",

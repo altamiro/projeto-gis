@@ -8,6 +8,7 @@ module.exports = {
     privateFieldsAsProperties: true
   },
   plugins: [
-    '@babel/plugin-transform-class-static-block'
+    '@babel/plugin-transform-private-methods',
+    '@babel/plugin-transform-class-static-block',
   ]
 };
