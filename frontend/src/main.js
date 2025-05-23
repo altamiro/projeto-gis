@@ -18,6 +18,8 @@ Vue.prototype.$http = httpService;
 Vue.prototype.$arcgisService = arcgisService;
 Vue.prototype.$layersService = layersService; // Adicionar esta linha
 
+window.arcgisService = arcgisService;
+
 Vue.use(ElementUI, { locale });
 Vue.config.productionTip = false;
 

@@ -204,6 +204,17 @@ export class ArcGISService {
       });
     }
 
+    // Adicionar configuração para processar geometrias do sketch
+    if (this.sketchWidget) {
+      // Configurar para transferir geometrias do sketch para as camadas apropriadas
+      this.sketchWidget.on("create", (event) => {
+        if (event.state === "complete" && event.graphic) {
+          // Manter a geometria no sketch até ser processada
+          console.log("Geometria criada no sketch:", event.graphic.geometry);
+        }
+      });
+    }
+
     return this.sketchWidget;
   }
 
@@ -2112,6 +2123,35 @@ export class ArcGISService {
       console.error("Erro ao converter geometria para GeoJSON:", error);
       return null;
     }
+  }
+
+  // Método para obter a última geometria criada no sketch
+  getLastSketchGeometry() {
+    if (this.sketchLayer && this.sketchLayer.graphics.length > 0) {
+      // Pegar a última geometria adicionada
+      const lastGraphic = this.sketchLayer.graphics.getItemAt(
+        this.sketchLayer.graphics.length - 1
+      );
+      return lastGraphic ? lastGraphic.geometry : null;
+    }
+    return null;
+  }
+
+  // Método para transferir geometria do sketch para uma camada específica
+  transferSketchToLayer(layerId, geometry) {
+    if (!geometry || !layerId) return false;
+
+    // Limpar a camada de destino
+    this.clearLayer(layerId);
+
+    // Adicionar a geometria à camada apropriada
+    const symbol = this.getDefaultSymbol(layerId);
+    this.addGraphic(layerId, geometry, symbol);
+
+    // Limpar o sketch após transferir
+    this.clearSketch();
+
+    return true;
   }
 }
 

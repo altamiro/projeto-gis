@@ -9,54 +9,6 @@
             size="medium"
             icon="el-icon-rank"
           )
-        el-tooltip(:content="getPolygonTooltip()" placement="right")
-          el-button(
-            :class="{ active: currentTool === 'polygon' }"
-            @click="setTool('polygon')"
-            size="medium"
-            icon="el-icon-crop"
-            :disabled="!canDrawPolygon"
-          )
-        el-tooltip(:content="getPointTooltip()" placement="right")
-          el-button(
-            :class="{ active: currentTool === 'point' }"
-            @click="setTool('point')"
-            size="medium"
-            icon="el-icon-location-outline"
-            :disabled="!canDrawPoint"
-          )
-        el-tooltip(:content="getLineTooltip()" placement="right")
-          el-button(
-            :class="{ active: currentTool === 'line' }"
-            @click="setTool('line')"
-            size="medium"
-            icon="el-icon-minus"
-            :disabled="!canDrawLine"
-          )
-        el-tooltip(:content="getEditTooltip()" placement="right")
-          el-button(
-            :class="{ active: currentTool === 'edit' }"
-            @click="setTool('edit')"
-            size="medium"
-            icon="el-icon-edit-outline"
-            :disabled="!canEditGeometry"
-          )
-        el-tooltip(content="Recortar geometria" placement="right")
-          el-button(
-            :class="{ active: currentTool === 'cut' }"
-            @click="setTool('cut')"
-            size="medium"
-            icon="el-icon-scissors"
-            :disabled="!canCutGeometry"
-          )
-        el-tooltip(:content="getEraseTooltip()" placement="right")
-          el-button(
-            @click="confirmDelete"
-            size="medium"
-            icon="el-icon-delete"
-            :disabled="!canDeleteGeometry"
-          )
-
         .toolbar-group.sketch-tools
           el-tooltip(content="Desenhar Ponto (Sketch)" placement="right")
             el-button(
@@ -278,24 +230,12 @@ export default {
       return this.layers.some(l => l.id === this.selectedLayer);
     },
     canDrawPolygon() {
-      if (!this.selectedLayer) return false;
-      if (this.hasDrawnGeometry && this.selectedLayer === 'area_imovel') return false;
-
-      // Verificar se o tipo de camada selecionada aceita polígonos
       return ['polygonSimple', 'multiPolygon'].includes(this.selectedLayerGeometryType);
     },
     canDrawPoint() {
-      if (!this.selectedLayer) return false;
-      if (this.hasDrawnGeometry && this.selectedLayer === 'area_imovel') return false;
-
-      // Verificar se o tipo de camada selecionada aceita pontos
       return this.selectedLayerGeometryType === 'point';
     },
     canDrawLine() {
-      if (!this.selectedLayer) return false;
-      if (this.hasDrawnGeometry && this.selectedLayer === 'area_imovel') return false;
-
-      // Verificar se o tipo de camada selecionada aceita linhas
       return this.selectedLayerGeometryType === 'polyline';
     },
     canEditGeometry() {
@@ -380,18 +320,6 @@ export default {
       switch (tool) {
         case 'pan':
           arcgisService.activatePanMode();
-          break;
-        case 'polygon':
-          this.startDrawing('polygon');
-          break;
-        case 'point':
-          this.startDrawing('point');
-          break;
-        case 'line':
-          this.startDrawing('polyline');
-          break;
-        case 'edit':
-          this.startEditing();
           break;
         case 'measure':
           this.startMeasurement();
@@ -941,33 +869,6 @@ export default {
       }
       return `${squareMeters.toFixed(2)} m²`;
     },
-    // Ferramentas de tooltips
-    getPolygonTooltip() {
-      if (!this.selectedLayer) return 'Selecione uma camada primeiro';
-      if (!this.canDrawPolygon) return 'Esta camada não aceita polígonos';
-      return 'Desenhar Polígono';
-    },
-    getPointTooltip() {
-      if (!this.selectedLayer) return 'Selecione uma camada primeiro';
-      if (!this.canDrawPoint) return 'Esta camada não aceita pontos';
-      return 'Desenhar Ponto';
-    },
-    getLineTooltip() {
-      if (!this.selectedLayer) return 'Selecione uma camada primeiro';
-      if (!this.canDrawLine) return 'Esta camada não aceita linhas';
-      return 'Desenhar Linha';
-    },
-    getEditTooltip() {
-      if (!this.hasSelectedLayer) return 'Selecione uma camada primeiro';
-      if (!this.hasDrawnGeometry) return 'Não há geometria para editar nesta camada';
-      return 'Editar Geometria';
-    },
-    getEraseTooltip() {
-      if (!this.hasSelectedLayer) return 'Selecione uma camada primeiro';
-      if (!this.hasDrawnGeometry) return 'Não há geometria para excluir nesta camada';
-      return 'Excluir Geometria';
-    },
-    // NOVA FUNCIONALIDADE: Ferramenta de Recorte
     prepareCutTool() {
       // Verificar se existe uma camada selecionada com geometria
       if (!this.canCutGeometry) {
@@ -1525,6 +1426,55 @@ export default {
 
     startSketch(sketchTool) {
       try {
+        // Verificar se uma camada está selecionada
+        if (!this.selectedLayer) {
+          this.addAlert({
+            type: 'warning',
+            message: 'Selecione uma camada primeiro.'
+          });
+          return;
+        }
+
+        // Verificar se já existe geometria para a camada selecionada
+        if (this.hasDrawnGeometry && this.selectedLayer === 'area_imovel') {
+          this.addAlert({
+            type: 'warning',
+            message: 'A Área do imóvel já foi definida. Para modificá-la, exclua-a primeiro.'
+          });
+          return;
+        }
+
+        // Validar tipo de geometria baseado na ferramenta sketch
+        let isValidGeometry = false;
+
+        if (sketchTool === 'sketch-point' && this.canDrawPoint) {
+          isValidGeometry = true;
+        } else if (sketchTool === 'sketch-polyline' && this.canDrawLine) {
+          isValidGeometry = true;
+        } else if (sketchTool === 'sketch-polygon' && this.canDrawPolygon) {
+          isValidGeometry = true;
+        }
+
+        if (!isValidGeometry) {
+          this.addAlert({
+            type: 'warning',
+            message: `Esta camada não aceita o tipo de geometria selecionado.`
+          });
+          return;
+        }
+
+        // Verificar se a camada "Área do imóvel" já foi definida para outras camadas
+        if (this.selectedLayer !== 'area_imovel') {
+          const area_imovelDefined = this.layers.some(l => l.id === 'area_imovel');
+          if (!area_imovelDefined) {
+            this.addAlert({
+              type: 'error',
+              message: 'É necessário definir a Área do imóvel antes de desenhar outras camadas.'
+            });
+            return;
+          }
+        }
+
         // Inicializar o sketch se necessário
         const sketch = arcgisService.initializeSketch();
 
@@ -1573,18 +1523,68 @@ export default {
       }
     },
 
-    handleSketchComplete(event) {
-      // Aqui você pode processar a geometria criada
-      console.log('Geometria criada:', event.graphic);
+    async handleSketchComplete(event) {
+      try {
+        // Obter a geometria criada
+        const geometry = event.graphic.geometry;
 
-      // Mostrar mensagem de sucesso
-      this.addAlert({
-        type: 'success',
-        message: `${this.getGeometryTypeName(event.graphic.geometry.type)} criado com sucesso.`
-      });
+        if (!geometry) {
+          this.addAlert({
+            type: 'error',
+            message: 'Nenhuma geometria foi criada.'
+          });
+          return;
+        }
 
-      // Atualizar status
-      this.updateSketchGraphicsStatus();
+        // Verificar se há uma camada selecionada
+        if (!this.selectedLayer) {
+          this.addAlert({
+            type: 'warning',
+            message: 'Selecione uma camada antes de desenhar.'
+          });
+          // Limpar o sketch
+          arcgisService.clearSketch();
+          this.updateSketchGraphicsStatus();
+          return;
+        }
+
+        // Adicionar a camada com a geometria desenhada
+        const result = await this.addLayer({
+          layerId: this.selectedLayer,
+          geometry
+        });
+
+        if (result.success) {
+          // A transferência para a camada apropriada é feita no store
+          // Mostrar mensagem de sucesso
+          this.addAlert({
+            type: 'success',
+            message: `${this.selectedLayerName} desenhada com sucesso.`
+          });
+
+          // Atualizar status
+          this.updateSketchGraphicsStatus();
+
+          // Voltar para o modo de navegação se for área do imóvel
+          if (this.selectedLayer === 'area_imovel') {
+            this.currentTool = 'pan';
+            arcgisService.activatePanMode();
+          }
+        } else {
+          // Em caso de erro, limpar o sketch
+          arcgisService.clearSketch();
+          this.updateSketchGraphicsStatus();
+        }
+      } catch (error) {
+        console.error('Erro ao processar geometria do sketch:', error);
+        this.addAlert({
+          type: 'error',
+          message: 'Ocorreu um erro ao processar a geometria desenhada.'
+        });
+        // Limpar o sketch em caso de erro
+        arcgisService.clearSketch();
+        this.updateSketchGraphicsStatus();
+      }
     },
 
     getGeometryTypeName(type) {

@@ -109,13 +109,22 @@ export default {
         return { success: false, message: "Tipo de camada inválido." };
       }
 
+      // Se a geometria vier do sketch, pode precisar de processamento adicional
+      let processedGeometry = geometry;
+
+      // Verificar se a geometria precisa ser convertida ou processada
+      if (geometry && geometry.type) {
+        // A geometria já está no formato correto do ArcGIS
+        console.log("Processando geometria do tipo:", geometry.type);
+      }
+
       // Calcular a área em hectares
-      const area = await dispatch("calculateArea", geometry);
+      const area = await dispatch("calculateArea", processedGeometry);
 
       // Validar a geometria com base no tipo de camada
       const validationResult = await dispatch("validateLayerGeometry", {
         layerId,
-        geometry,
+        geometry: processedGeometry,
         area,
       });
 
@@ -136,10 +145,15 @@ export default {
         id: layerId,
         type: layerId,
         name: layerType.name,
-        geometry,
+        geometry: processedGeometry,
         area,
         timestamp: new Date().toISOString(),
       });
+
+      // Transferir a geometria do sketch para a camada apropriada no mapa
+      if (window.arcgisService) {
+        window.arcgisService.transferSketchToLayer(layerId, processedGeometry);
+      }
 
       // Se for a área do imóvel, calcular a área líquida
       if (layerId === "area_imovel") {

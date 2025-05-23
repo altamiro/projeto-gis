@@ -394,6 +394,40 @@ export default {
         console.error('Erro ao converter GeoJSON para geometria ArcGIS:', error);
         return null;
       }
+    },
+
+    /**
+ * Processa geometria criada através do sketch
+ * @param {Object} geometry - Geometria criada no sketch
+ * @param {String} layerId - ID da camada de destino
+ */
+    async processSketchGeometry(geometry, layerId) {
+      if (!geometry || !layerId) {
+        this.$store.dispatch('validation/addAlert', {
+          type: 'error',
+          message: 'Geometria ou camada inválida.'
+        });
+        return;
+      }
+
+      try {
+        // Adicionar a geometria como uma nova camada
+        const result = await this.$store.dispatch('layers/addLayer', {
+          layerId,
+          geometry
+        });
+
+        if (result.success) {
+          // Feedback visual de sucesso já é tratado pelo MapToolbar
+          console.log('Geometria do sketch processada com sucesso');
+        }
+      } catch (error) {
+        console.error('Erro ao processar geometria do sketch:', error);
+        this.$store.dispatch('validation/addAlert', {
+          type: 'error',
+          message: 'Erro ao processar a geometria desenhada.'
+        });
+      }
     }
 
   },
