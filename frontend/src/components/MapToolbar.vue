@@ -9,35 +9,72 @@
             size="medium"
             icon="el-icon-rank"
           )
-        .toolbar-group.sketch-tools
-          el-tooltip(content="Desenhar Ponto (Sketch)" placement="right")
-            el-button(
-              :class="{ active: currentTool === 'sketch-point' }"
-              @click="setTool('sketch-point')"
-              size="medium"
-              icon="el-icon-map-location"
-            )
-          el-tooltip(content="Desenhar Linha (Sketch)" placement="right")
-            el-button(
-              :class="{ active: currentTool === 'sketch-polyline' }"
-              @click="setTool('sketch-polyline')"
-              size="medium"
-              icon="el-icon-connection"
-            )
-          el-tooltip(content="Desenhar Polígono (Sketch)" placement="right")
-            el-button(
-              :class="{ active: currentTool === 'sketch-polygon' }"
-              @click="setTool('sketch-polygon')"
-              size="medium"
-              icon="el-icon-full-screen"
-            )
-          el-tooltip(content="Limpar Sketch" placement="right")
-            el-button(
-              @click="clearSketch"
-              size="medium"
-              icon="el-icon-brush"
-              :disabled="!hasSketchGraphics"
-            )
+      
+      .toolbar-group.sketch-tools
+        el-tooltip(content="Desenhar Ponto" placement="right")
+          el-button(
+            :class="{ active: currentTool === 'point' }"
+            @click="setTool('point')"
+            size="medium"
+            icon="el-icon-map-location"
+          )
+        el-tooltip(content="Desenhar Linha" placement="right")
+          el-button(
+            :class="{ active: currentTool === 'polyline' }"
+            @click="setTool('polyline')"
+            size="medium"
+            icon="el-icon-connection"
+          )
+        el-tooltip(content="Desenhar Polígono" placement="right")
+          el-button(
+            :class="{ active: currentTool === 'polygon' }"
+            @click="setTool('polygon')"
+            size="medium"
+            icon="el-icon-full-screen"
+          )
+
+        el-tooltip(content="Selecionar/Editar" placement="right")
+          el-button(
+            :class="{ active: currentTool === 'select' }"
+            @click="setTool('select')"
+            size="medium"
+            icon="el-icon-aim"
+          )
+        el-tooltip(content="Seleção Retangular" placement="right")
+          el-button(
+            :class="{ active: currentTool === 'rectangle-selection' }"
+            @click="setTool('rectangle-selection')"
+            size="medium"
+            icon="el-icon-crop"
+          )
+        el-tooltip(content="Seleção por Laço" placement="right")
+          el-button(
+            :class="{ active: currentTool === 'lasso-selection' }"
+            @click="setTool('lasso-selection')"
+            size="medium"
+            icon="el-icon-magic-stick"
+          )
+        el-tooltip(content="Desfazer" placement="right")
+          el-button(
+            @click="handleUndo"
+            size="medium"
+            icon="el-icon-back"
+            :disabled="!canUndo"
+          )
+        el-tooltip(content="Refazer" placement="right")
+          el-button(
+            @click="handleRedo"
+            size="medium"
+            icon="el-icon-right"
+            :disabled="!canRedo"
+          )
+        el-tooltip(content="Limpar Seleção" placement="right")
+          el-button(
+            @click="clearSelection"
+            size="medium"
+            icon="el-icon-brush"
+            :disabled="!hasSelection"
+          )
 
       .toolbar-group.measure-tools
         el-tooltip(content="Medir distância/área" placement="right")
@@ -193,13 +230,21 @@ export default {
       // Propriedades para botões de salvar/carregar
       isSaving: false,
       isLoading: false,
-      hasSketchGraphics: false,
-      sketchEventHandlers: []
+      sketchEventHandlers: [],
+      sketch: null,
+      sketchViewModel: null,
+      canUndo: false,
+      canRedo: false,
+      hasSelection: false,
     };
   },
   beforeDestroy() {
-    // Limpar event handlers do sketch
-    this.clearSketchEventHandlers();
+    // Limpar recursos do sketch
+    if (this.sketch) {
+      this.sketch.destroy();
+      this.sketch = null;
+      this.sketchViewModel = null;
+    }
   },
   computed: {
     ...mapState({
@@ -291,6 +336,7 @@ export default {
     ...mapMutations({
       setDrawingMode: 'layers/SET_DRAWING_MODE'
     }),
+
     setTool(tool) {
       // Se já estiver desenhando, não permitir mudar de ferramenta
       if ((this.isDrawing || this.isCutting) && this.currentTool !== tool) {
@@ -298,12 +344,6 @@ export default {
           type: 'warning',
           message: 'Finalize a operação atual antes de trocar de ferramenta.'
         });
-        return;
-      }
-
-      // Tratamento especial para a ferramenta de recorte
-      if (tool === 'cut') {
-        this.prepareCutTool();
         return;
       }
 
@@ -317,20 +357,37 @@ export default {
       this.activateTool(tool);
     },
     activateTool(tool) {
+      // Garantir que o sketch está inicializado
+      if (!this.sketch) {
+        this.initializeSketch();
+      }
+
       switch (tool) {
         case 'pan':
           arcgisService.activatePanMode();
+          if (this.sketch) {
+            this.sketch.cancel();
+          }
+          break;
+        case 'point':
+        case 'polyline':
+        case 'polygon':
+          this.startSketchCreation(tool);
+          break;
+        case 'select':
+          this.enableSelection();
+          break;
+        case 'rectangle-selection':
+          this.enableRectangleSelection();
+          break;
+        case 'lasso-selection':
+          this.enableLassoSelection();
           break;
         case 'measure':
           this.startMeasurement();
           break;
         case 'cut':
-          // A ferramenta de recorte é tratada separadamente
-          break;
-        case 'sketch-point':
-        case 'sketch-polyline':
-        case 'sketch-polygon':
-          this.startSketch(tool);
+          this.prepareCutTool();
           break;
         default:
           arcgisService.activatePanMode();
@@ -1146,6 +1203,217 @@ export default {
       }
     },
 
+    initializeSketch() {
+      const sketchResult = arcgisService.initializeSketch();
+      if (sketchResult) {
+        this.sketch = sketchResult.sketch;
+        this.sketchViewModel = sketchResult.viewModel;
+
+        // Configurar eventos do sketch
+        this.setupSketchEvents();
+      }
+    },
+
+    setupSketchEvents() {
+      if (!this.sketch) return;
+
+      // Evento de criação
+      this.sketch.on('create', (event) => {
+        if (event.state === 'complete') {
+          this.handleSketchCreate(event);
+        }
+      });
+
+      // Evento de atualização
+      this.sketch.on('update', (event) => {
+        if (event.state === 'complete') {
+          this.handleSketchUpdate(event);
+        }
+        this.updateSketchState();
+      });
+
+      // Evento de exclusão
+      this.sketch.on('delete', () => {
+        this.updateSketchState();
+      });
+
+      // Eventos de undo/redo
+      this.sketch.on('undo', () => {
+        this.updateSketchState();
+      });
+
+      this.sketch.on('redo', () => {
+        this.updateSketchState();
+      });
+
+      // Monitorar mudanças no viewModel
+      if (this.sketchViewModel) {
+        this.sketchViewModel.watch(['canUndo', 'canRedo'], () => {
+          this.canUndo = this.sketchViewModel.canUndo;
+          this.canRedo = this.sketchViewModel.canRedo;
+        });
+      }
+    },
+
+    startSketchCreation(tool) {
+      if (!this.sketch) {
+        this.initializeSketch();
+      }
+
+      // Cancelar qualquer operação em andamento
+      this.sketch.cancel();
+
+      // Configurar o modo de criação baseado na ferramenta
+      const creationMode = tool === 'rectangle' || tool === 'circle' ? 'single' : 'single';
+
+      // Atualizar as opções de criação
+      this.sketch.creationMode = creationMode;
+
+      // Iniciar a criação com a ferramenta específica
+      this.sketch.create(tool);
+    },
+
+    enableSelection() {
+      if (!this.sketch) return;
+
+      // Cancelar qualquer criação em andamento
+      this.sketch.cancel();
+
+      // O modo de seleção é o padrão quando não está criando
+      this.updateSketchState();
+    },
+
+    enableRectangleSelection() {
+      if (!this.sketch) return;
+
+      this.sketch.cancel();
+
+      // Ativar seleção por retângulo
+      // Nota: Isso pode requerer configuração adicional do SketchViewModel
+      if (this.sketchViewModel) {
+        this.sketchViewModel.multipleSelectionEnabled = true;
+        this.sketchViewModel.selectionMode = 'rectangle';
+      }
+    },
+
+    enableLassoSelection() {
+      if (!this.sketch) return;
+
+      this.sketch.cancel();
+
+      // Ativar seleção por laço
+      if (this.sketchViewModel) {
+        this.sketchViewModel.multipleSelectionEnabled = true;
+        this.sketchViewModel.selectionMode = 'lasso';
+      }
+    },
+
+    handleSketchCreate(event) {
+      if (!event.graphic || !event.graphic.geometry) return;
+
+      // Verificar se há uma camada selecionada
+      if (!this.selectedLayer) {
+        this.addAlert({
+          type: 'warning',
+          message: 'Selecione uma camada antes de desenhar.'
+        });
+        // Remover o gráfico criado
+        this.sketch.layer.remove(event.graphic);
+        return;
+      }
+
+      // Processar a geometria criada
+      this.processSketchGeometry(event.graphic.geometry);
+    },
+
+    handleSketchUpdate(event) {
+      // Lidar com atualizações de geometria
+      if (event.graphics && event.graphics.length > 0) {
+        console.log('Geometrias atualizadas:', event.graphics);
+      }
+    },
+
+    async processSketchGeometry(geometry) {
+      try {
+        // Adicionar a camada com a geometria desenhada
+        const result = await this.addLayer({
+          layerId: this.selectedLayer,
+          geometry
+        });
+
+        if (result.success) {
+          // Transferir para a camada apropriada
+          arcgisService.transferSketchToLayer(this.selectedLayer, geometry);
+
+          // Mostrar mensagem de sucesso
+          this.addAlert({
+            type: 'success',
+            message: `${this.selectedLayerName} desenhada com sucesso.`
+          });
+
+          // Limpar o sketch
+          this.clearSketch();
+
+          // Voltar para o modo de navegação se for área do imóvel
+          if (this.selectedLayer === 'area_imovel') {
+            this.currentTool = 'pan';
+            arcgisService.activatePanMode();
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao processar geometria do sketch:', error);
+        this.addAlert({
+          type: 'error',
+          message: 'Ocorreu um erro ao processar a geometria desenhada.'
+        });
+      }
+    },
+
+    updateSketchState() {
+      if (!this.sketch) return;
+
+      // Atualizar estado dos botões
+      this.hasSelection = this.sketch.updateGraphics && this.sketch.updateGraphics.length > 0;
+
+      if (this.sketchViewModel) {
+        this.canUndo = this.sketchViewModel.canUndo;
+        this.canRedo = this.sketchViewModel.canRedo;
+      }
+    },
+
+    handleUndo() {
+      if (this.sketch && this.sketchViewModel && this.sketchViewModel.canUndo) {
+        this.sketch.undo();
+      }
+    },
+
+    handleRedo() {
+      if (this.sketch && this.sketchViewModel && this.sketchViewModel.canRedo) {
+        this.sketch.redo();
+      }
+    },
+
+    clearSelection() {
+      if (this.sketch) {
+        // Limpar gráficos selecionados
+        if (this.sketch.updateGraphics) {
+          this.sketch.updateGraphics.forEach(graphic => {
+            this.sketch.layer.remove(graphic);
+          });
+        }
+        this.sketch.cancel();
+        this.updateSketchState();
+      }
+    },
+
+    clearSketch() {
+      if (this.sketch && this.sketch.layer) {
+        this.sketch.layer.removeAll();
+        this.sketch.cancel();
+        this.updateSketchState();
+      }
+    },
+
     /**
      * Carrega camadas salvas do servidor
      */
@@ -1423,204 +1691,6 @@ export default {
         return null;
       }
     },
-
-    startSketch(sketchTool) {
-      try {
-        // Verificar se uma camada está selecionada
-        if (!this.selectedLayer) {
-          this.addAlert({
-            type: 'warning',
-            message: 'Selecione uma camada primeiro.'
-          });
-          return;
-        }
-
-        // Verificar se já existe geometria para a camada selecionada
-        if (this.hasDrawnGeometry && this.selectedLayer === 'area_imovel') {
-          this.addAlert({
-            type: 'warning',
-            message: 'A Área do imóvel já foi definida. Para modificá-la, exclua-a primeiro.'
-          });
-          return;
-        }
-
-        // Validar tipo de geometria baseado na ferramenta sketch
-        let isValidGeometry = false;
-
-        if (sketchTool === 'sketch-point' && this.canDrawPoint) {
-          isValidGeometry = true;
-        } else if (sketchTool === 'sketch-polyline' && this.canDrawLine) {
-          isValidGeometry = true;
-        } else if (sketchTool === 'sketch-polygon' && this.canDrawPolygon) {
-          isValidGeometry = true;
-        }
-
-        if (!isValidGeometry) {
-          this.addAlert({
-            type: 'warning',
-            message: `Esta camada não aceita o tipo de geometria selecionado.`
-          });
-          return;
-        }
-
-        // Verificar se a camada "Área do imóvel" já foi definida para outras camadas
-        if (this.selectedLayer !== 'area_imovel') {
-          const area_imovelDefined = this.layers.some(l => l.id === 'area_imovel');
-          if (!area_imovelDefined) {
-            this.addAlert({
-              type: 'error',
-              message: 'É necessário definir a Área do imóvel antes de desenhar outras camadas.'
-            });
-            return;
-          }
-        }
-
-        // Inicializar o sketch se necessário
-        const sketch = arcgisService.initializeSketch();
-
-        if (!sketch) {
-          this.addAlert({
-            type: 'error',
-            message: 'Não foi possível inicializar a ferramenta de desenho.'
-          });
-          this.currentTool = 'pan';
-          return;
-        }
-
-        // Limpar event handlers anteriores
-        this.clearSketchEventHandlers();
-
-        // Adicionar event handlers para o sketch
-        const createHandler = sketch.on('create', (event) => {
-          if (event.state === 'complete') {
-            this.handleSketchComplete(event);
-          }
-        });
-
-        const updateHandler = sketch.on('update', () => {
-          this.updateSketchGraphicsStatus();
-        });
-
-        const deleteHandler = sketch.on('delete', () => {
-          this.updateSketchGraphicsStatus();
-        });
-
-        this.sketchEventHandlers = [createHandler, updateHandler, deleteHandler];
-
-        // Ativar a ferramenta específica
-        arcgisService.activateSketchTool(sketchTool);
-
-        // Atualizar status
-        this.updateSketchGraphicsStatus();
-
-      } catch (error) {
-        console.error('Erro ao iniciar sketch:', error);
-        this.addAlert({
-          type: 'error',
-          message: 'Ocorreu um erro ao iniciar a ferramenta de desenho.'
-        });
-        this.currentTool = 'pan';
-      }
-    },
-
-    async handleSketchComplete(event) {
-      try {
-        // Obter a geometria criada
-        const geometry = event.graphic.geometry;
-
-        if (!geometry) {
-          this.addAlert({
-            type: 'error',
-            message: 'Nenhuma geometria foi criada.'
-          });
-          return;
-        }
-
-        // Verificar se há uma camada selecionada
-        if (!this.selectedLayer) {
-          this.addAlert({
-            type: 'warning',
-            message: 'Selecione uma camada antes de desenhar.'
-          });
-          // Limpar o sketch
-          arcgisService.clearSketch();
-          this.updateSketchGraphicsStatus();
-          return;
-        }
-
-        // Adicionar a camada com a geometria desenhada
-        const result = await this.addLayer({
-          layerId: this.selectedLayer,
-          geometry
-        });
-
-        if (result.success) {
-          // A transferência para a camada apropriada é feita no store
-          // Mostrar mensagem de sucesso
-          this.addAlert({
-            type: 'success',
-            message: `${this.selectedLayerName} desenhada com sucesso.`
-          });
-
-          // Atualizar status
-          this.updateSketchGraphicsStatus();
-
-          // Voltar para o modo de navegação se for área do imóvel
-          if (this.selectedLayer === 'area_imovel') {
-            this.currentTool = 'pan';
-            arcgisService.activatePanMode();
-          }
-        } else {
-          // Em caso de erro, limpar o sketch
-          arcgisService.clearSketch();
-          this.updateSketchGraphicsStatus();
-        }
-      } catch (error) {
-        console.error('Erro ao processar geometria do sketch:', error);
-        this.addAlert({
-          type: 'error',
-          message: 'Ocorreu um erro ao processar a geometria desenhada.'
-        });
-        // Limpar o sketch em caso de erro
-        arcgisService.clearSketch();
-        this.updateSketchGraphicsStatus();
-      }
-    },
-
-    getGeometryTypeName(type) {
-      const typeNames = {
-        'point': 'Ponto',
-        'polyline': 'Linha',
-        'polygon': 'Polígono'
-      };
-      return typeNames[type] || 'Geometria';
-    },
-
-    clearSketch() {
-      arcgisService.clearSketch();
-      this.updateSketchGraphicsStatus();
-
-      this.addAlert({
-        type: 'info',
-        message: 'Desenhos removidos.'
-      });
-    },
-
-    updateSketchGraphicsStatus() {
-      // Verificar se há gráficos na camada sketch
-      const sketchLayer = arcgisService.sketchLayer;
-      this.hasSketchGraphics = sketchLayer && sketchLayer.graphics.length > 0;
-    },
-
-    clearSketchEventHandlers() {
-      this.sketchEventHandlers.forEach(handler => {
-        if (handler && handler.remove) {
-          handler.remove();
-        }
-      });
-      this.sketchEventHandlers = [];
-    }
-
   }
 };
 </script>
@@ -1677,7 +1747,7 @@ $warning-color: #e6a23c;
   pointer-events: auto;
   max-height: calc(100vh - 150px);
   overflow-y: auto;
-  width: 44px;
+  width: 60px;
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
 
   &:hover {

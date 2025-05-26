@@ -194,28 +194,51 @@ export class ArcGISService {
       this.sketchWidget = new Sketch({
         layer: this.sketchLayer,
         view: this.view,
-        // Configurações de criação
-        creationMode: "single", // single, continuous, ou update
-        // Personalizar símbolos padrão
+        creationMode: "single",
         defaultCreateOptions: {
-          mode: "click", // click, freehand, ou hybrid
+          mode: "click",
           hasZ: false,
         },
+        // Habilitar snapping
+        snappingOptions: {
+          enabled: true,
+          selfEnabled: true,
+          featureEnabled: true,
+        },
+        // Configurar símbolos padrão
+        defaultUpdateOptions: {
+          tool: "transform",
+          enableRotation: true,
+          enableScaling: true,
+          enableZ: false,
+          multipleSelectionEnabled: true,
+          toggleToolOnClick: false,
+        },
+        // Configurar visual dos handles
+        visibleElements: {
+          createTools: {
+            point: true,
+            polyline: true,
+            polygon: true,
+            rectangle: true,
+            circle: true,
+          },
+          selectionTools: {
+            "rectangle-selection": true,
+            "lasso-selection": true,
+          },
+          settingsMenu: false,
+        },
       });
+
+      // Adicionar o widget à view (opcional - pode ser controlado programaticamente)
+      // this.view.ui.add(this.sketchWidget, "top-right");
     }
 
-    // Adicionar configuração para processar geometrias do sketch
-    if (this.sketchWidget) {
-      // Configurar para transferir geometrias do sketch para as camadas apropriadas
-      this.sketchWidget.on("create", (event) => {
-        if (event.state === "complete" && event.graphic) {
-          // Manter a geometria no sketch até ser processada
-          console.log("Geometria criada no sketch:", event.graphic.geometry);
-        }
-      });
-    }
-
-    return this.sketchWidget;
+    return {
+      sketch: this.sketchWidget,
+      viewModel: this.sketchWidget.viewModel,
+    };
   }
 
   // Método para ativar uma ferramenta específica do Sketch
