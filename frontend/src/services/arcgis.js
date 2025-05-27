@@ -174,95 +174,121 @@ export class ArcGISService {
     return this.view.when();
   }
 
-  // Substituir o método initializeSketch() existente por:
   initializeSketch() {
+    // Verificar se view está inicializada
     if (!this.view) {
       console.error("View não está inicializada");
       return null;
     }
 
-    // Criar camada para o sketch se não existir
-    if (!this.sketchLayer) {
-      this.sketchLayer = new GraphicsLayer({
-        id: "sketch",
-        title: "Camada de Desenho",
-      });
-      this.map.add(this.sketchLayer);
+    // Se o sketch já existe e está funcionando, retornar
+    if (this.sketchWidget && this.sketchLayer) {
+      return {
+        sketch: this.sketchWidget,
+        viewModel: this.sketchWidget.viewModel,
+      };
     }
 
-    // Criar widget Sketch se não existir
-    if (!this.sketchWidget) {
-      this.sketchWidget = new Sketch({
-        layer: this.sketchLayer,
-        view: this.view,
-        creationMode: "single",
-        defaultCreateOptions: {
-          mode: "click",
-          hasZ: false,
-        },
-        // Habilitar snapping
-        snappingOptions: {
-          enabled: true,
-          selfEnabled: true,
-          featureEnabled: true,
-        },
-        // Configurar símbolos padrão
-        defaultUpdateOptions: {
-          tool: "transform",
-          enableRotation: true,
-          enableScaling: true,
-          enableZ: false,
-          multipleSelectionEnabled: true,
-          toggleToolOnClick: false,
-        },
-        // Configurar visual dos handles
-        visibleElements: {
-          createTools: {
-            point: true,
-            polyline: true,
-            polygon: true,
-            rectangle: true,
-            circle: true,
-          },
-          selectionTools: {
-            "rectangle-selection": true,
-            "lasso-selection": true,
-          },
-          settingsMenu: false,
-          undoRedoMenu: true, // Habilitar menu de undo/redo
-          deleteButton: true, // Habilitar botão de deletar
-        },
-      });
-
-      // Configurar eventos do SketchViewModel
-      if (this.sketchWidget.viewModel) {
-        // Monitorar mudanças no estado de undo/redo
-        this.sketchWidget.viewModel.watch(["canUndo", "canRedo"], () => {
-          // Emitir evento customizado para atualizar a UI
-          this.view.emit("sketch-state-changed", {
-            canUndo: this.sketchWidget.viewModel.canUndo,
-            canRedo: this.sketchWidget.viewModel.canRedo,
-            hasSelection:
-              this.sketchWidget.updateGraphics &&
-              this.sketchWidget.updateGraphics.length > 0,
-          });
+    try {
+      // Criar camada para o sketch se não existir
+      if (!this.sketchLayer) {
+        this.sketchLayer = new GraphicsLayer({
+          id: "sketch",
+          title: "Camada de Desenho",
         });
-
-        // Monitorar mudanças na seleção
-        this.sketchWidget.on("update", (event) => {
-          this.view.emit("sketch-state-changed", {
-            canUndo: this.sketchWidget.viewModel.canUndo,
-            canRedo: this.sketchWidget.viewModel.canRedo,
-            hasSelection: event.graphics && event.graphics.length > 0,
-          });
-        });
+        this.map.add(this.sketchLayer);
       }
-    }
 
-    return {
-      sketch: this.sketchWidget,
-      viewModel: this.sketchWidget.viewModel,
-    };
+      // Aguardar a view estar completamente carregada
+      return this.view
+        .when()
+        .then(() => {
+          // Criar widget Sketch apenas após a view estar pronta
+          if (!this.sketchWidget) {
+            this.sketchWidget = new Sketch({
+              layer: this.sketchLayer,
+              view: this.view, // View garantidamente disponível aqui
+              creationMode: "single",
+              defaultCreateOptions: {
+                mode: "click",
+                hasZ: false,
+              },
+              // Habilitar snapping
+              snappingOptions: {
+                enabled: true,
+                selfEnabled: true,
+                featureEnabled: true,
+              },
+              // Configurar símbolos padrão
+              defaultUpdateOptions: {
+                tool: "transform",
+                enableRotation: true,
+                enableScaling: true,
+                enableZ: false,
+                multipleSelectionEnabled: true,
+                toggleToolOnClick: false,
+              },
+              // Configurar visual dos handles
+              visibleElements: {
+                createTools: {
+                  point: true,
+                  polyline: true,
+                  polygon: true,
+                  rectangle: true,
+                  circle: true,
+                },
+                selectionTools: {
+                  "rectangle-selection": true,
+                  "lasso-selection": true,
+                },
+                settingsMenu: false,
+                undoRedoMenu: true,
+                deleteButton: true,
+              },
+            });
+
+            // Configurar eventos do SketchViewModel
+            if (this.sketchWidget.viewModel) {
+              // Monitorar mudanças no estado de undo/redo
+              this.sketchWidget.viewModel.watch(["canUndo", "canRedo"], () => {
+                // Emitir evento customizado para atualizar a UI
+                if (this.view) {
+                  this.view.emit("sketch-state-changed", {
+                    canUndo: this.sketchWidget.viewModel.canUndo,
+                    canRedo: this.sketchWidget.viewModel.canRedo,
+                    hasSelection:
+                      this.sketchWidget.updateGraphics &&
+                      this.sketchWidget.updateGraphics.length > 0,
+                  });
+                }
+              });
+
+              // Monitorar mudanças na seleção
+              this.sketchWidget.on("update", (event) => {
+                if (this.view) {
+                  this.view.emit("sketch-state-changed", {
+                    canUndo: this.sketchWidget.viewModel.canUndo,
+                    canRedo: this.sketchWidget.viewModel.canRedo,
+                    hasSelection: event.graphics && event.graphics.length > 0,
+                  });
+                }
+              });
+            }
+          }
+
+          return {
+            sketch: this.sketchWidget,
+            viewModel: this.sketchWidget.viewModel,
+          };
+        })
+        .catch((error) => {
+          console.error("Erro ao inicializar Sketch:", error);
+          return null;
+        });
+    } catch (error) {
+      console.error("Erro ao criar camada ou widget Sketch:", error);
+      return null;
+    }
   }
 
   // Método para ativar uma ferramenta específica do Sketch
@@ -1207,24 +1233,46 @@ export class ArcGISService {
 
   // Destruir e liberar recursos
   destroy() {
-    if (this.view) {
-      this.view.destroy();
+    // Destruir o sketch widget primeiro
+    if (this.sketchWidget) {
+      try {
+        this.sketchWidget.destroy();
+      } catch (error) {
+        console.warn("Erro ao destruir sketch widget:", error);
+      }
+      this.sketchWidget = null;
     }
 
+    // Remover a camada sketch
+    if (this.sketchLayer && this.map) {
+      try {
+        this.map.remove(this.sketchLayer);
+      } catch (error) {
+        console.warn("Erro ao remover camada sketch:", error);
+      }
+      this.sketchLayer = null;
+    }
+
+    // Destruir a view
+    if (this.view) {
+      try {
+        this.view.destroy();
+      } catch (error) {
+        console.warn("Erro ao destruir view:", error);
+      }
+      this.view = null;
+    }
+
+    // Limpar o tooltip
     if (this.tooltip && this.tooltip.parentNode) {
       this.tooltip.parentNode.removeChild(this.tooltip);
       this.tooltip = null;
     }
 
-    if (this.sketchWidget) {
-      this.sketchWidget.destroy();
-      this.sketchWidget = null;
-    }
-
-    if (this.sketchLayer) {
-      this.map.remove(this.sketchLayer);
-      this.sketchLayer = null;
-    }
+    // Limpar outras referências
+    this.map = null;
+    this.drawTool = null;
+    this.layers = {};
   }
 
   /**
@@ -2204,9 +2252,14 @@ export class ArcGISService {
   /**
    * Ativa o modo de seleção padrão do Sketch
    */
-  activateSelectionMode() {
+  async activateSelectionMode() {
+    // Inicializar o sketch se necessário
     if (!this.sketchWidget) {
-      this.initializeSketch();
+      const result = await this.initializeSketch();
+      if (!result) {
+        console.error("Falha ao inicializar sketch");
+        return;
+      }
     }
 
     // Aguardar o sketch estar pronto
@@ -2220,17 +2273,19 @@ export class ArcGISService {
 
     // Copiar gráficos das camadas existentes para a camada sketch
     this.copyLayersToSketch();
-
-    // O modo de seleção é o padrão quando não está criando
-    // Não precisa fazer nada adicional, o sketch já permite seleção por clique
   }
 
   /**
    * Ativa o modo de seleção retangular
    */
-  activateRectangleSelection() {
+  async activateRectangleSelection() {
+    // Inicializar o sketch se necessário
     if (!this.sketchWidget) {
-      this.initializeSketch();
+      const result = await this.initializeSketch();
+      if (!result) {
+        console.error("Falha ao inicializar sketch");
+        return;
+      }
     }
 
     if (!this.isSketchReady()) {
@@ -2275,9 +2330,14 @@ export class ArcGISService {
   /**
    * Ativa o modo de seleção por laço
    */
-  activateLassoSelection() {
+  async activateLassoSelection() {
+    // Inicializar o sketch se necessário
     if (!this.sketchWidget) {
-      this.initializeSketch();
+      const result = await this.initializeSketch();
+      if (!result) {
+        console.error("Falha ao inicializar sketch");
+        return;
+      }
     }
 
     if (!this.isSketchReady()) {
@@ -2573,6 +2633,21 @@ export class ArcGISService {
     };
 
     return layerNames[layerId] || layerId;
+  }
+
+  isReady() {
+    return this.map && this.view && this.view.ready;
+  }
+
+  /**
+   * Aguarda o serviço estar pronto
+   */
+  async waitUntilReady() {
+    if (!this.view) {
+      throw new Error("View não foi inicializada");
+    }
+
+    return this.view.when();
   }
 }
 

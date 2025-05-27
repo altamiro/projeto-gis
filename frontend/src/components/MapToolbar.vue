@@ -332,28 +332,40 @@ export default {
       if (!this.selectedLayer) return null;
       return this.$store.getters['layers/getLayerGroup'](this.selectedLayer);
     },
-    // Nova propriedade computada para verificar se existem camadas desenhadas para o botão salvar
+
     hasDrawnLayers() {
       return this.layers && this.layers.length > 0;
+    },
+    mapReady() {
+      return arcgisService.view && arcgisService.view.ready;
     }
   },
 
-  mounted() {
+  async mounted() {
+    // Aguardar o próximo tick e verificar se o arcgisService está pronto
+    await this.$nextTick();
 
-    this.$nextTick(() => {
+    // Aguardar um pequeno delay para garantir que o mapa está completamente carregado
+    setTimeout(async () => {
       if (arcgisService.view) {
-        // Inicializar o sketch quando o componente for montado
-        this.initializeSketch();
+        try {
+          // Aguardar a view estar pronta
+          await arcgisService.view.when();
 
-        // Escutar eventos de mudança de estado do sketch
-        arcgisService.view.on('sketch-state-changed', (event) => {
-          this.canUndo = event.canUndo || false;
-          this.canRedo = event.canRedo || false;
-          this.hasSelection = event.hasSelection || false;
-        });
+          // Inicializar o sketch
+          await this.initializeSketch();
+
+          // Escutar eventos de mudança de estado do sketch
+          arcgisService.view.on('sketch-state-changed', (event) => {
+            this.canUndo = event.canUndo || false;
+            this.canRedo = event.canRedo || false;
+            this.hasSelection = event.hasSelection || false;
+          });
+        } catch (error) {
+          console.error('Erro ao configurar MapToolbar:', error);
+        }
       }
-    });
-
+    }, 500); // Delay de 500ms para garantir que tudo está carregado
   },
 
   methods: {
@@ -398,10 +410,22 @@ export default {
       this.activateTool(tool);
     },
 
-    activateTool(tool) {
-      // Garantir que o sketch está inicializado
-      if (!this.sketch) {
-        this.initializeSketch();
+    async activateTool(tool) {
+      // Para ferramentas que precisam do sketch, garantir que está inicializado
+      if (['select', 'rectangle-selection', 'lasso-selection'].includes(tool)) {
+        if (!this.sketch) {
+          await this.initializeSketch();
+        }
+
+        // Se ainda não tiver sketch após tentar inicializar, mostrar erro
+        if (!this.sketch) {
+          this.addAlert({
+            type: 'warning',
+            message: 'Aguarde o mapa carregar completamente antes de usar as ferramentas de seleção.'
+          });
+          this.currentTool = 'pan';
+          return;
+        }
       }
 
       switch (tool) {
@@ -417,13 +441,13 @@ export default {
           this.startSketchCreation(tool);
           break;
         case 'select':
-          arcgisService.activateSelectionMode();
+          await arcgisService.activateSelectionMode();
           break;
         case 'rectangle-selection':
-          arcgisService.activateRectangleSelection();
+          await arcgisService.activateRectangleSelection();
           break;
         case 'lasso-selection':
-          arcgisService.activateLassoSelection();
+          await arcgisService.activateLassoSelection();
           break;
         case 'measure':
           this.startMeasurement();
@@ -1245,9 +1269,9 @@ export default {
       }
     },
 
-    initializeSketch() {
+    async initializeSketch() {
       try {
-        const sketchResult = arcgisService.initializeSketch();
+        const sketchResult = await arcgisService.initializeSketch();
         if (sketchResult) {
           this.sketch = sketchResult.sketch;
           this.sketchViewModel = sketchResult.viewModel;
@@ -1260,10 +1284,7 @@ export default {
         }
       } catch (error) {
         console.error('Erro ao inicializar sketch:', error);
-        this.addAlert({
-          type: 'error',
-          message: 'Erro ao inicializar ferramentas de desenho.'
-        });
+        // Não mostrar alerta aqui pois pode ser apenas timing
       }
     },
 
