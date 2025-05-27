@@ -16,7 +16,7 @@ import * as projectOperator from "@arcgis/core/geometry/operators/projectOperato
 import * as coordinateFormatter from "@arcgis/core/geometry/coordinateFormatter";
 import * as centroidOperator from "@arcgis/core/geometry/operators/centroidOperator";
 
-import colors from "../utils/colors";
+import { LAYER_TYPES } from "@/utils/constants_layers";
 
 import locationIcon from "@/assets/localizacao.png";
 
@@ -142,19 +142,17 @@ export class ArcGISService {
     });
     this.map.add(this.centroidLayer);
 
-    // Inicializar camadas gráficas para cada tipo de camada
-    const layerTypes = [
-      "area_imovel",
-      "sede_imovel",
-      "area_consolidada",
-      "vegetacao_nativa",
-      "area_pousio",
-      "area_servidao_administrativa_total",
-      "hydrography",
-      "area_antropizada_apos_2008_vetorizada",
-      "temp", // Adicionar camada temporária para desenho em tempo real
-    ];
+    // Obter camadas editáveis diretamente do LAYER_TYPES importado
+    let layerTypes = LAYER_TYPES.filter((lt) => lt.editable).map((lt) => lt.id);
 
+    // Garantir que a camada temporária está incluída
+    if (!layerTypes.includes("temp")) {
+      layerTypes.push("temp");
+    }
+
+    console.log("Camadas inicializadas:", layerTypes);
+
+    // Inicializar as camadas
     layerTypes.forEach((type) => {
       const layer = new GraphicsLayer({
         id: type,
@@ -349,7 +347,11 @@ export class ArcGISService {
     }
   }
 
-  // Método atualizado para exibir geometria do município
+  /**
+   * Exibe a geometria do município e retorna a geometria processada
+   * @param {Object} municipality - Objeto contendo os dados do município
+   * @returns {Object} Geometria processada do município
+   */
   displayMunicipality(municipality) {
     if (!municipality || !municipality.geometry) {
       console.error("Município sem geometria válida");
@@ -926,13 +928,35 @@ export class ArcGISService {
     }
   }
 
-  addGraphic(layerId, geometry, symbol, attributes = {}) {
-    const layer = this.layers[layerId];
+  /**
+   * Garante que a camada existe, criando-a se necessário
+   * @param {String} layerId - ID da camada a verificar/criar
+   * @returns {Object} A camada gráfica
+   */
+  ensureLayerExists(layerId) {
+    if (!this.layers[layerId]) {
+      console.log(`Criando camada dinamicamente: ${layerId}`);
 
-    if (!layer) {
-      console.error(`Camada ${layerId} não encontrada.`);
-      return null;
+      // Verificar se é uma camada válida em LAYER_TYPES
+      const isValidLayer = LAYER_TYPES.some((lt) => lt.id === layerId);
+
+      if (!isValidLayer && layerId !== "temp") {
+        console.warn(`Criando camada não definida em LAYER_TYPES: ${layerId}`);
+      }
+
+      const layer = new GraphicsLayer({
+        id: layerId,
+      });
+      this.map.add(layer);
+      this.layers[layerId] = layer;
     }
+
+    return this.layers[layerId];
+  }
+
+  addGraphic(layerId, geometry, symbol, attributes = {}) {
+    // Garantir que a camada existe
+    const layer = this.ensureLayerExists(layerId);
 
     // Definir símbolo padrão se não for fornecido
     const defaultSymbol = this.getDefaultSymbol(layerId);
@@ -954,9 +978,18 @@ export class ArcGISService {
   }
 
   clearLayer(layerId) {
+    try {
+      // Verificar se a camada existe
     const layer = this.layers[layerId];
     if (layer) {
+        // Remover todos os gráficos da camada
       layer.removeAll();
+        console.log(`Camada ${layerId} limpa com sucesso`);
+      } else {
+        console.warn(`Camada ${layerId} não encontrada para limpeza`);
+      }
+    } catch (error) {
+      console.error(`Erro ao limpar camada ${layerId}:`, error);
     }
   }
 
@@ -1013,77 +1046,51 @@ export class ArcGISService {
   }
 
   getDefaultSymbol(layerId) {
-    // Definir símbolos padrão para cada tipo de camada
-    const symbols = {
-      area_imovel: {
-        type: "simple-fill",
-        color: colors.layers.area_imovel.fill,
-        outline: {
-          color: colors.layers.area_imovel.outline,
+    // Encontrar a definição da camada em LAYER_TYPES
+    const layerType = LAYER_TYPES.find((layer) => layer.id === layerId);
+
+    // Se a camada for encontrada, usar suas cores definidas
+    if (layerType) {
+      // Verificar tipo de geometria para determinar o tipo de símbolo
+      if (layerType.tipo_geom === "point") {
+        return {
+          type: "simple-marker",
+          style: "square",
+          color: layerType.fill,
+          size: "10px",
+          outline: {
+            color: layerType.outline,
+            width: 1,
+          },
+        };
+      } else if (layerType.tipo_geom === "polyline") {
+        return {
+          type: "simple-line",
+          color: layerType.outline,
           width: 2,
-        },
-      },
-      sede_imovel: {
-        type: "simple-marker",
-        style: "square",
-        color: colors.layers.sede_imovel.fill,
-        size: "10px",
-        outline: {
-          color: colors.layers.sede_imovel.outline,
-          width: 1,
-        },
-      },
-      area_consolidada: {
-        type: "simple-fill",
-        color: colors.layers.area_consolidada.fill,
-        outline: {
-          color: colors.layers.area_consolidada.outline,
-          width: 1,
-        },
-      },
-      vegetacao_nativa: {
-        type: "simple-fill",
-        color: colors.layers.vegetacao_nativa.fill,
-        outline: {
-          color: colors.layers.vegetacao_nativa.outline,
-          width: 1,
-        },
-      },
-      area_pousio: {
-        type: "simple-fill",
-        color: colors.layers.area_pousio.fill,
-        outline: {
-          color: colors.layers.area_pousio.outline,
-          width: 1,
-        },
-      },
-      area_servidao_administrativa_total: {
-        type: "simple-fill",
-        color: colors.layers.area_servidao_administrativa_total.fill,
-        outline: {
-          color: colors.layers.area_servidao_administrativa_total.outline,
-          width: 1,
-        },
-      },
-      hydrography: {
-        type: "simple-fill",
-        color: colors.layers.hydrography.fill,
-        outline: {
-          color: colors.layers.hydrography.outline,
-          width: 1,
-        },
-      },
-      area_antropizada_apos_2008_vetorizada: {
-        type: "simple-fill",
-        color: colors.layers.area_antropizada_apos_2008_vetorizada.fill,
-        outline: {
-          color: colors.layers.area_antropizada_apos_2008_vetorizada.outline,
-          width: 1,
-        },
+        };
+      } else {
+        // Para polygonSimple e multiPolygon
+        return {
+          type: "simple-fill",
+          color: layerType.fill,
+          outline: {
+            color: layerType.outline,
+            width: 1,
+          },
+        };
+      }
+    }
+
+    // Símbolo padrão caso a camada não seja encontrada
+    return {
+      type: "simple-fill",
+      color: [200, 200, 200, 0.5],
+      outline: {
+        color: [150, 150, 150, 0.8],
+        width: 1,
       },
     };
-
-    return symbols[layerId] || symbols.area_imovel;
   }
 
   // Verifica se pelo menos 50% da área da geometria está dentro do município
@@ -1742,9 +1749,10 @@ export class ArcGISService {
   /**
    * Importa geometria de um arquivo
    * @param {File} file - Arquivo a ser importado (GeoJSON, Shapefile, etc.)
+   * @param {String} targetLayerId - ID da camada de destino para a geometria
    * @returns {Promise} Promessa com a geometria importada
    */
-  async importGeometryFromFile(file) {
+  async importGeometryFromFile(file, targetLayerId) {
     return new Promise((resolve, reject) => {
       try {
         // Esta é uma implementação simplificada. Na realidade, seria necessário:
@@ -1819,6 +1827,67 @@ export class ArcGISService {
                   geometry,
                   this.view.spatialReference
                 );
+              }
+
+              // Verificar compatibilidade com o tipo de camada, caso seja fornecido
+              if (targetLayerId) {
+                // Buscar o tipo de camada do store ou importar diretamente
+                // Opção 1: Se o store estiver disponível diretamente
+                let layerTypes = [];
+                if (window.store && window.store.state.layers) {
+                  layerTypes = window.store.state.layers.layerTypes;
+                } else {
+                  // Opção 2: Importar diretamente (pode precisar de ajustes no contexto real)
+                  try {
+                    // Tentar importar de uma variável global se estiver disponível
+                    layerTypes = window.LAYER_TYPES || [];
+                  } catch (e) {
+                    console.warn(
+                      "Não foi possível obter os tipos de camada:",
+                      e
+                    );
+                  }
+                }
+
+                // Buscar o tipo de camada alvo
+                const layerType = layerTypes.find(
+                  (lt) => lt.id === targetLayerId
+                );
+
+                if (layerType) {
+                  // Verificar compatibilidade da geometria com o tipo de camada
+                  let isCompatible = false;
+                  const geomType = geometry.type;
+                  const expectedGeomType = layerType.tipo_geom;
+
+                  if (geomType === "point" && expectedGeomType === "point") {
+                    isCompatible = true;
+                  } else if (
+                    geomType === "polyline" &&
+                    expectedGeomType === "polyline"
+                  ) {
+                    isCompatible = true;
+                  } else if (
+                    (geomType === "polygon" || geomType === "extent") &&
+                    (expectedGeomType === "polygonSimple" ||
+                      expectedGeomType === "multiPolygon")
+                  ) {
+                    isCompatible = true;
+                  }
+
+                  if (!isCompatible) {
+                    reject(
+                      new Error(
+                        `A geometria importada (${geomType}) não é compatível com o tipo esperado (${expectedGeomType}) para a camada "${layerType.name}".`
+                      )
+                    );
+                    return;
+                  }
+                } else {
+                  console.warn(
+                    `Tipo de camada não encontrado para ID: ${targetLayerId}`
+                  );
+                }
               }
 
               resolve({ geometry, properties: feature.properties || {} });

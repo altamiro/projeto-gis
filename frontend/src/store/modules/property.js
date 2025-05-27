@@ -1,5 +1,7 @@
 import arcgisService from '../../services/arcgis';
 import municipalityData from '../../dados/geojs-35-mun.json';
+import { LAYER_TYPES } from "../../utils/constants_layers";
+
 
 export default {
   namespaced: true,
@@ -130,32 +132,60 @@ export default {
         return { success: false };
       }
     },
-    
+
     calculateNetarea_imovel({ commit, rootState }) {
-      const area_imovel = rootState.layers.layers.find(l => l.id === 'area_imovel')?.area || 0;
+      const area_imovel =
+        rootState.layers.layers.find((l) => l.id === "area_imovel")?.area || 0;
       const area_servidao_administrativa_totals = rootState.layers.layers
-        .filter(l => l.type === 'area_servidao_administrativa_total')
+        .filter((l) => l.type === "area_servidao_administrativa_total")
         .reduce((sum, layer) => sum + (layer.area || 0), 0);
-      
+
       const netArea = area_imovel - area_servidao_administrativa_totals;
-      commit('SET_NET_PROPERTY_AREA', netArea);
+      commit("SET_NET_PROPERTY_AREA", netArea);
       return netArea;
     },
     calculatearea_antropizada_apos_2008_vetorizada({ commit, rootState }) {
-      const area_imovel = rootState.layers.layers.find(l => l.id === 'area_imovel')?.area || 0;
-      const area_consolidada = rootState.layers.layers.find(l => l.id === 'area_consolidada')?.area || 0;
-      const vegetacao_nativa = rootState.layers.layers.find(l => l.id === 'vegetacao_nativa')?.area || 0;
-      const area_servidao_administrativa_totals = rootState.layers.layers
-        .filter(l => l.type === 'area_servidao_administrativa_total')
-        .reduce((sum, layer) => sum + (layer.area || 0), 0);
-      const hydrography = rootState.layers.layers
-        .filter(l => l.type === 'hydrography')
-        .reduce((sum, layer) => sum + (layer.area || 0), 0);
-      
-      const area_antropizada_apos_2008_vetorizada = area_imovel - (area_consolidada + vegetacao_nativa + area_servidao_administrativa_totals + hydrography);
-      commit('SET_ANTHROPIZED_AFTER_2008', area_antropizada_apos_2008_vetorizada);
-      return area_antropizada_apos_2008_vetorizada;
+      const area_imovel =
+        rootState.layers.layers.find((l) => l.id === "area_imovel")?.area || 0;
+
+      // Identificar camadas relevantes através do LAYER_TYPES
+      const relevantLayerIds = [
+        "area_consolidada",
+        "vegetacao_nativa",
+        "area_servidao_administrativa_total",
+        "hydrography",
+      ];
+
+      // Calcular áreas das camadas relevantes
+      const otherAreasSum = relevantLayerIds.reduce((sum, layerId) => {
+        // Para camadas individuais
+        if (
+          layerId !== "area_servidao_administrativa_total" &&
+          layerId !== "hydrography"
+        ) {
+          const layer = rootState.layers.layers.find((l) => l.id === layerId);
+          return sum + (layer?.area || 0);
     }
+
+        // Para grupos de camadas (como servidão e hidrografia)
+        const layerGroup = rootState.layers.layers.filter(
+          (l) => l.type === layerId
+        );
+        const groupSum = layerGroup.reduce(
+          (groupSum, layer) => groupSum + (layer.area || 0),
+          0
+        );
+        return sum + groupSum;
+      }, 0);
+
+      const area_antropizada_apos_2008_vetorizada = area_imovel - otherAreasSum;
+
+      commit(
+        "SET_ANTHROPIZED_AFTER_2008",
+        area_antropizada_apos_2008_vetorizada
+      );
+      return area_antropizada_apos_2008_vetorizada;
+    },
   },
   getters: {
     hasMunicipalitySelected: state => !!state.municipality

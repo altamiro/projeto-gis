@@ -4,85 +4,84 @@
       .card-header(slot="header")
         span Áreas Calculadas
       
-      // Grupo de Imóvel
-      .area-group(v-if="area_imovel > 0")
-        .group-title
-          span Imóvel
-        el-descriptions(:column="1" border)
-          el-descriptions-item(label="Área do Imóvel")
-            span {{ formatArea(area_imovel) }} ha
-          el-descriptions-item(label="Área Líquida do Imóvel")
-            span {{ formatArea(netarea_imovel) }} ha
-      
-      // Grupo de Cobertura do Solo
-      .area-group(v-if="area_imovel > 0")
-        .group-title
-          span Cobertura do Solo
-        el-descriptions(:column="1" border)
-          el-descriptions-item(label="Área Consolidada")
-            span {{ formatArea(area_consolidada) }} ha
-          el-descriptions-item(label="Remanescente de Vegetação Nativa")
-            span {{ formatArea(vegetacao_nativa) }} ha
-          el-descriptions-item(label="Área de Pousio")
-            span {{ formatArea(area_pousio) }} ha
-          el-descriptions-item(label="Área Antropizada após 2008")
-            span {{ formatArea(area_antropizada_apos_2008_vetorizada) }} ha
-      
-      .no-property-info(v-else)
-        span Vetorize a área do imóvel para visualizar os cálculos.
-      
-      // Verificação de cobertura completa
-      //- .validation-section(v-if="area_imovel > 0")
-      //-   el-alert(
-      //-     v-if="!isPropertyFullyCovered"
-      //-     title="A área do imóvel não está completamente coberta."
-      //-     type="warning"
-      //-     show-icon
-      //-     :closable="false"
-      //-   )
-      //-   el-alert(
-      //-     v-else
-      //-     title="Cobertura completa verificada com sucesso."
-      //-     type="success"
-      //-     show-icon
-      //-     :closable="false"
-      //-   )
-  </template>
+      .card-content-wrapper
+        // Gerar dinamicamente os grupos de camadas
+        template(v-if="area_imovel > 0")
+          .area-group(v-for="group in groupsWithLayers" :key="group.id")
+            .group-title
+              span {{ group.title }}
+            el-descriptions(:column="1" border)
+              el-descriptions-item(v-for="option in filterVisibleOptions(group.options)" 
+                                  :key="option.id" 
+                                  :label="option.name")
+                span {{ formatArea(getLayerArea(option.id)) }} ha
+        
+        .no-property-info(v-else)
+          span Vetorize a área do imóvel para visualizar os cálculos.
+</template>
 
 <script>
 import { mapState, mapGetters } from 'vuex';
+import { GROUP_LAYER, LAYER_TYPES } from "@/utils/constants_layers";
 
 export default {
   name: 'AreaCalculator',
+  data() {
+    return {
+      groupLayers: GROUP_LAYER
+    };
+  },
   computed: {
     ...mapState({
       area_imovel: state => {
         const propertyLayer = state.layers.layers.find(l => l.id === 'area_imovel');
         return propertyLayer ? propertyLayer.area : 0;
       },
-      netarea_imovel: state => state.property.netarea_imovel,
-      area_antropizada_apos_2008_vetorizada: state => state.property.area_antropizada_apos_2008_vetorizada,
-      // Novas propriedades computadas para áreas de cobertura do solo
-      area_consolidada: state => {
-        const layer = state.layers.layers.find(l => l.id === 'area_consolidada');
-        return layer ? layer.area : 0;
-      },
-      vegetacao_nativa: state => {
-        const layer = state.layers.layers.find(l => l.id === 'vegetacao_nativa');
-        return layer ? layer.area : 0;
-      },
-      area_pousio: state => {
-        const layer = state.layers.layers.find(l => l.id === 'area_pousio');
-        return layer ? layer.area : 0;
-      }
+      area_imovel_liquida: state => state.property.netarea_imovel,
+      layers: state => state.layers.layers,
     }),
     ...mapGetters({
       isPropertyFullyCovered: 'layers/isPropertyFullyCovered'
-    })
+    }),
+    
+    // Grupos com camadas disponíveis
+    groupsWithLayers() {
+      return this.groupLayers.filter(group => {
+        // Verificar se o grupo tem pelo menos uma opção com view_calculation: true
+        const visibleOptions = this.filterVisibleOptions(group.options);
+        return visibleOptions.length > 0;
+      });
+    }
   },
   methods: {
     formatArea(area) {
-      return area ? area.toFixed(4) : '0.0000';
+      return area ? area.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : '0,0000';
+    },
+    getLayerArea(layerId) {
+      // Verificar se a camada existe no state
+      const layer = this.layers.find(l => l.id === layerId);
+      if (layer && layer.area !== undefined) {
+        return layer.area;
+      }
+      
+      // Verificar se está no state.property (para compatibilidade com o código anterior)
+      if (this.$store.state.property[layerId] !== undefined) {
+        return this.$store.state.property[layerId];
+      }
+      
+      return 0;
+    },
+    // Método para filtrar apenas as camadas que devem ser exibidas no cálculo
+    filterVisibleOptions(options) {
+      if (!options) return [];
+      
+      return options.filter(option => {
+        // Encontrar a definição completa da camada no LAYER_TYPES
+        const layerDefinition = LAYER_TYPES.find(layer => layer.id === option.id);
+        
+        // Verificar se a camada tem view_calculation: true
+        return layerDefinition && layerDefinition.view_calculation === true;
+      });
     }
   }
 };
@@ -93,12 +92,37 @@ export default {
 $font-size-base: 14px;
 
 .area-calculator-card {
-  width: 300px;
+  width: 400px;
   margin-top: 10px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12), 0 0 6px rgba(0, 0, 0, 0.04);
 
   &:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 0 6px rgba(0, 0, 0, 0.08);
+  }
+}
+
+.card-content-wrapper {
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 5px;
+  
+  /* Estilizar a barra de rolagem para navegadores WebKit (Chrome, Safari) */
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: #c0c4cc;
+    border-radius: 3px;
+  }
+  
+  &::-webkit-scrollbar-thumb:hover {
+    background: #909399;
   }
 }
 

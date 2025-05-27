@@ -190,16 +190,23 @@ export default {
         { root: true }
       );
 
-      // Se necessário, recortar outras camadas
-      if (
+      // Determinar dinamicamente quais camadas precisam de recorte
+      const layersNeedingClipping = state.layerTypes
+        .filter(
+          (lt) =>
+            lt.editable &&
         [
           "area_imovel",
           "vegetacao_nativa",
           "area_consolidada",
           "area_servidao_administrativa_total",
           "hydrography",
-        ].includes(layerId)
-      ) {
+            ].includes(lt.id)
+        )
+        .map((lt) => lt.id);
+
+      // Se necessário, recortar outras camadas
+      if (layersNeedingClipping.includes(layerId)) {
         dispatch("clipOverlappingLayers", layerId);
       }
 
@@ -212,8 +219,8 @@ export default {
         if (layerId === "area_imovel") {
           // Limpa todas as camadas no mapa antes de remover do estado
           state.layers.forEach((layer) => {
-            // Use um serviço ou método para limpar cada camada no mapa
-            dispatch("clearLayerGraphics", layer.id, { root: false });
+            // Usar o serviço ArcGIS diretamente para limpar cada camada no mapa
+            arcgisService.clearLayer(layer.id);
           });
 
           // Remove todas as camadas do estado
@@ -228,8 +235,8 @@ export default {
               "Todas as camadas foram removidas pois a Área do imóvel foi excluída.",
           };
         } else {
-          // Limpa a camada específica no mapa
-          dispatch("clearLayerGraphics", layerId, { root: false });
+          // Limpa a camada específica no mapa usando o serviço ArcGIS
+          arcgisService.clearLayer(layerId);
 
           // Remove a camada do estado
           commit("REMOVE_LAYER", layerId);
@@ -564,9 +571,26 @@ export default {
     },
 
     clearLayerGraphics({ commit }, layerId) {
-      // Use o serviço do ArcGIS para limpar a camada
+      try {
+        // Usar o serviço do ArcGIS para limpar a camada
+        arcgisService.clearLayer(layerId);
+        console.log(`Gráficos da camada ${layerId} removidos do mapa`);
+      } catch (error) {
+        console.error(`Erro ao limpar gráficos da camada ${layerId}:`, error);
+
+        // Tentar acessar o serviço através de diferentes métodos
+        try {
       if (window.arcgisService) {
         window.arcgisService.clearLayer(layerId);
+          } else if (this._vm && this._vm.$arcgisService) {
+            this._vm.$arcgisService.clearLayer(layerId);
+          }
+        } catch (fallbackError) {
+          console.error(
+            "Erro no método de fallback para limpar camada:",
+            fallbackError
+          );
+        }
       }
     },
 
