@@ -51,7 +51,10 @@ export const LAYER_TYPES = [
     name: "Área do Imóvel",
     tipo_geom: "polygonSimple",
     editable: true,
-    required: true
+    required: true,
+    view_calculation: true,
+    fill: "#FFFFFF33",
+    outline: "#DAA520",
   },
   {
     tema_id: 65,
@@ -61,7 +64,10 @@ export const LAYER_TYPES = [
     name: "Área do Imóvel Líquida Análise",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#33FF5799",
+    outline: "#33FF57FF",
   },
   {
     tema_id: 84,
@@ -71,7 +77,10 @@ export const LAYER_TYPES = [
     name: "Área do Território",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#3357FF99",
+    outline: "#3357FFFF",
   },
   {
     tema_id: 27,
@@ -81,7 +90,10 @@ export const LAYER_TYPES = [
     name: "Área Líquida do Imóvel",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: true,
+    fill: "#FF33A199",
+    outline: "#FF33A1FF",
   },
   {
     tema_id: 81,
@@ -91,7 +103,10 @@ export const LAYER_TYPES = [
     name: "Sede ou Ponto de Referência do Imóvel",
     tipo_geom: "point",
     editable: true,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#A1FF3399",
+    outline: "#A1FF33FF",
   },
   {
     tema_id: 59,
@@ -101,7 +116,10 @@ export const LAYER_TYPES = [
     name: "Área Antropizada Não Consolidada",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#33A1FF99",
+    outline: "#33A1FFFF",
   },
   {
     tema_id: 1,
@@ -111,7 +129,10 @@ export const LAYER_TYPES = [
     name: "Área Consolidada",
     tipo_geom: "multiPolygon",
     editable: true,
-    required: false
+    required: false,
+    view_calculation: true,
+    fill: "#FFA13399",
+    outline: "#FFA133FF",
   },
   {
     tema_id: 3,
@@ -121,7 +142,10 @@ export const LAYER_TYPES = [
     name: "Área de Pousio",
     tipo_geom: "multiPolygon",
     editable: true,
-    required: false
+    required: false,
+    view_calculation: true,
+    fill: "#5733FF99",
+    outline: "#5733FFFF",
   },
   {
     tema_id: 60,
@@ -131,7 +155,10 @@ export const LAYER_TYPES = [
     name: "Curso d'água",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#33FFA199",
+    outline: "#33FFA1FF",
   },
   {
     tema_id: 2,
@@ -141,7 +168,10 @@ export const LAYER_TYPES = [
     name: "Remanescente de Vegetação Nativa",
     tipo_geom: "multiPolygon",
     editable: true,
-    required: false
+    required: false,
+    view_calculation: true,
+    fill: "#FF33FF99",
+    outline: "#FF33FFFF",
   },
   {
     tema_id: 99,
@@ -152,6 +182,9 @@ export const LAYER_TYPES = [
     tipo_geom: "multiPolygon",
     editable: true,
     required: false,
+    view_calculation: true,
+    fill: "#A133FF99",
+    outline: "#A133FFFF",
   },
   {
     tema_id: 29,
@@ -161,7 +194,10 @@ export const LAYER_TYPES = [
     name: "Área de Servidão Administrativa Total",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: true,
+    fill: "#FF573499",
+    outline: "#FF5734FF",
   },
   {
     tema_id: 28,
@@ -170,8 +206,11 @@ export const LAYER_TYPES = [
     id: "area_entorno_reservatorio_energia",
     name: "Entorno de Reservatório para Abastecimento ou Geração de Energia",
     tipo_geom: "multiPolygon",
-    editable: false,
-    required: false
+    editable: true,
+    required: false,
+    view_calculation: true,
+    fill: "#34FF5799",
+    outline: "#34FF57FF",
   },
   {
     tema_id: 4,
@@ -181,7 +220,10 @@ export const LAYER_TYPES = [
     name: "Infraestrutura Pública",
     tipo_geom: "multiPolygon",
     editable: true,
-    required: false
+    required: false,
+    view_calculation: true,
+    fill: "#3457FF99",
+    outline: "#3457FFFF",
   },
   {
     tema_id: 6,
@@ -190,8 +232,11 @@ export const LAYER_TYPES = [
     id: "reservatorio_energia",
     name: "Reservatório para Abastecimento ou Geração de Energia",
     tipo_geom: "multiPolygon",
-    editable: true,
-    required: false
+    editable: false,
+    required: false,
+    view_calculation: false,
+    fill: "#FF34A199",
+    outline: "#FF34A1FF",
   },
   {
     tema_id: 5,
@@ -201,7 +246,10 @@ export const LAYER_TYPES = [
     name: "Utilidade Pública",
     tipo_geom: "multiPolygon",
     editable: true,
-    required: false
+    required: false,
+    view_calculation: true,
+    fill: "#A1FF3499",
+    outline: "#A1FF34FF",
   },
   {
     tema_id: 85,
@@ -211,7 +259,10 @@ export const LAYER_TYPES = [
     name: "APP em área consolidada",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#34A1FF99",
+    outline: "#34A1FFFF",
   },
   {
     tema_id: 83,
@@ -220,8 +271,11 @@ export const LAYER_TYPES = [
     id: "app_reservatorio_geracao_energia_ate_24_08_2001",
     name: "Reservatório de Geração de Energia Elétrica Construído até 24/08/2001",
     tipo_geom: "multiPolygon",
-    editable: true,
-    required: false
+    editable: false,
+    required: false,
+    view_calculation: false,
+    fill: "#FFA13499",
+    outline: "#FFA134FF",
   },
   {
     tema_id: 31,
@@ -231,7 +285,10 @@ export const LAYER_TYPES = [
     name: "APP Segundo art. 61-A da Lei nº 12.651/2012",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#5734FF99",
+    outline: "#5734FFFF",
   },
   {
     tema_id: 30,
@@ -241,7 +298,10 @@ export const LAYER_TYPES = [
     name: "APP Total",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#34FFA199",
+    outline: "#34FFA1FF",
   },
   {
     tema_id: 19,
@@ -250,8 +310,11 @@ export const LAYER_TYPES = [
     id: "area_altitude_superior_1800",
     name: "Área com Altitude Superior a 1.800 Metros",
     tipo_geom: "multiPolygon",
-    editable: true,
-    required: false
+    editable: false,
+    required: false,
+    view_calculation: false,
+    fill: "#FF34FF99",
+    outline: "#FF34FFFF",
   },
   {
     tema_id: 20,
@@ -260,8 +323,11 @@ export const LAYER_TYPES = [
     id: "area_declividade_maior_45",
     name: "Área de Declividade Maior Que 45 Graus",
     tipo_geom: "multiPolygon",
-    editable: true,
-    required: false
+    editable: false,
+    required: false,
+    view_calculation: false,
+    fill: "#A134FF99",
+    outline: "#A134FFFF",
   },
   {
     tema_id: 42,
@@ -271,7 +337,10 @@ export const LAYER_TYPES = [
     name: "Área de Preservação Permanente a Recompor de Lagos e Lagoas Naturais",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#FF573599",
+    outline: "#FF5735FF",
   },
   {
     tema_id: 43,
@@ -281,7 +350,10 @@ export const LAYER_TYPES = [
     name: "Área de Preservação Permanente a Recompor de Nascentes ou Olhos D'água Perenes",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#35FF5799",
+    outline: "#35FF57FF",
   },
   {
     tema_id: 36,
@@ -291,7 +363,10 @@ export const LAYER_TYPES = [
     name: "Área de Preservação Permanente a Recompor de Rios até 10 metros",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#3557FF99",
+    outline: "#3557FFFF",
   },
   {
     tema_id: 40,
@@ -301,7 +376,10 @@ export const LAYER_TYPES = [
     name: "Área de Preservação Permanente a Recompor de Rios com mais de 600 metros",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#FF35A199",
+    outline: "#FF35A1FF",
   },
   {
     tema_id: 37,
@@ -311,7 +389,10 @@ export const LAYER_TYPES = [
     name: "Área de Preservação Permanente a Recompor de Rios de 10 até 50 metros",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#A1FF3599",
+    outline: "#A1FF35FF",
   },
   {
     tema_id: 39,
@@ -321,7 +402,10 @@ export const LAYER_TYPES = [
     name: "Área de Preservação Permanente a Recompor de Rios de 200 até 600 metros",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#35A1FF99",
+    outline: "#35A1FFFF",
   },
   {
     tema_id: 38,
@@ -331,7 +415,10 @@ export const LAYER_TYPES = [
     name: "Área de Preservação Permanente a Recompor de Rios de 50 até 200 metros",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#FFA13599",
+    outline: "#FFA135FF",
   },
   {
     tema_id: 41,
@@ -341,7 +428,10 @@ export const LAYER_TYPES = [
     name: "Área de Preservação Permanente a Recompor de Veredas",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#5735FF99",
+    outline: "#5735FFFF",
   },
   {
     tema_id: 55,
@@ -351,7 +441,10 @@ export const LAYER_TYPES = [
     name: "Área de Preservação Permanente de Áreas com Altitude Superior a 1800 metros",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#35FFA199",
+    outline: "#35FFA1FF",
   },
   {
     tema_id: 58,
@@ -361,7 +454,10 @@ export const LAYER_TYPES = [
     name: "Área de Preservação Permanente de Áreas com Declividades Superiores a 45 graus",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#FF35FF99",
+    outline: "#FF35FFFF",
   },
   {
     tema_id: 64,
@@ -371,7 +467,10 @@ export const LAYER_TYPES = [
     name: "Área de Preservação Permanente de Banhado",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#A135FF99",
+    outline: "#A135FFFF",
   },
   {
     tema_id: 56,
@@ -381,7 +480,10 @@ export const LAYER_TYPES = [
     name: "Área de Preservação Permanente de Bordas de Chapada",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#FF573699",
+    outline: "#FF5736FF",
   },
   {
     tema_id: 50,
@@ -391,7 +493,10 @@ export const LAYER_TYPES = [
     name: "Área de Preservação Permanente de Lagos e Lagoas Naturais",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#36FF5799",
+    outline: "#36FF57FF",
   },
   {
     tema_id: 54,
@@ -401,7 +506,10 @@ export const LAYER_TYPES = [
     name: "Área de Preservação Permanente de Manguezais",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#3657FF99",
+    outline: "#3657FFFF",
   },
   {
     tema_id: 49,
@@ -411,7 +519,10 @@ export const LAYER_TYPES = [
     name: "Área de Preservação Permanente de Nascentes ou Olhos D'água Perenes",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#FF36A199",
+    outline: "#FF36A1FF",
   },
   {
     tema_id: 51,
@@ -421,7 +532,10 @@ export const LAYER_TYPES = [
     name: "Área de Preservação Permanente de Reservatório artificial decorrente de barramento de cursos d'água",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#A1FF3699",
+    outline: "#A1FF36FF",
   },
   {
     tema_id: 57,
@@ -431,7 +545,10 @@ export const LAYER_TYPES = [
     name: "Área de Preservação Permanente de Restingas",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#36A1FF99",
+    outline: "#36A1FFFF",
   },
   {
     tema_id: 44,
@@ -441,7 +558,10 @@ export const LAYER_TYPES = [
     name: "Área de Preservação Permanente de Rios até 10 metros",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#FFA13699",
+    outline: "#FFA136FF",
   },
   {
     tema_id: 48,
@@ -451,7 +571,10 @@ export const LAYER_TYPES = [
     name: "Área de Preservação Permanente de Rios com mais de 600 metros",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#5736FF99",
+    outline: "#5736FFFF",
   },
   {
     tema_id: 45,
@@ -461,7 +584,10 @@ export const LAYER_TYPES = [
     name: "Área de Preservação Permanente de Rios de 10 até 50 metros",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#36FFA199",
+    outline: "#36FFA1FF",
   },
   {
     tema_id: 47,
@@ -471,7 +597,10 @@ export const LAYER_TYPES = [
     name: "Área de Preservação Permanente de Rios de 200 até 600 metros",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#FF36FF99",
+    outline: "#FF36FFFF",
   },
   {
     tema_id: 46,
@@ -481,7 +610,10 @@ export const LAYER_TYPES = [
     name: "Área de Preservação Permanente de Rios de 50 até 200 metros",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#A136FF99",
+    outline: "#A136FFFF",
   },
   {
     tema_id: 53,
@@ -491,7 +623,10 @@ export const LAYER_TYPES = [
     name: "Área de Preservação Permanente de Topos de Morro",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#FF573799",
+    outline: "#FF5737FF",
   },
   {
     tema_id: 52,
@@ -501,7 +636,10 @@ export const LAYER_TYPES = [
     name: "Área de Preservação Permanente de Veredas",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#37FF5799",
+    outline: "#37FF57FF",
   },
   {
     tema_id: 62,
@@ -511,7 +649,10 @@ export const LAYER_TYPES = [
     name: "Área de Preservação Permanente em área antropizada não declarada como área consolidada",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#3757FF99",
+    outline: "#3757FFFF",
   },
   {
     tema_id: 61,
@@ -521,7 +662,10 @@ export const LAYER_TYPES = [
     name: "Área de Preservação Permanente em área de Vegetação Nativa",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#FF37A199",
+    outline: "#FF37A1FF",
   },
   {
     tema_id: 22,
@@ -531,7 +675,10 @@ export const LAYER_TYPES = [
     name: "Área de topo de morro",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#A1FF3799",
+    outline: "#A1FF37FF",
   },
   {
     tema_id: 7,
@@ -541,7 +688,10 @@ export const LAYER_TYPES = [
     name: "Área de Uso Restrito para declividade de 25 a 45 graus",
     tipo_geom: "multiPolygon",
     editable: true,
-    required: false
+    required: false,
+    view_calculation: true,
+    fill: "#37A1FF99",
+    outline: "#37A1FFFF",
   },
   {
     tema_id: 8,
@@ -551,7 +701,10 @@ export const LAYER_TYPES = [
     name: "Área de Uso Restrito para regiões pantaneiras",
     tipo_geom: "multiPolygon",
     editable: true,
-    required: false
+    required: false,
+    view_calculation: true,
+    fill: "#FFA13799",
+    outline: "#FFA137FF",
   },
   {
     tema_id: 63,
@@ -560,8 +713,11 @@ export const LAYER_TYPES = [
     id: "banhado",
     name: "Banhado",
     tipo_geom: "multiPolygon",
-    editable: true,
-    required: false
+    editable: false,
+    required: false,
+    view_calculation: false,
+    fill: "#5737FF99",
+    outline: "#5737FFFF",
   },
   {
     tema_id: 21,
@@ -570,8 +726,11 @@ export const LAYER_TYPES = [
     id: "borda_chapada",
     name: "Borda de chapada",
     tipo_geom: "multiPolygon",
-    editable: true,
-    required: false
+    editable: false,
+    required: false,
+    view_calculation: false,
+    fill: "#37FFA199",
+    outline: "#37FFA1FF",
   },
   {
     tema_id: 13,
@@ -580,8 +739,11 @@ export const LAYER_TYPES = [
     id: "rio_acima_600",
     name: "Curso d'água natural acima de 600 metros",
     tipo_geom: "multiPolygon",
-    editable: true,
-    required: false
+    editable: false,
+    required: false,
+    view_calculation: false,
+    fill: "#FF37FF99",
+    outline: "#FF37FFFF",
   },
   {
     tema_id: 10,
@@ -590,8 +752,11 @@ export const LAYER_TYPES = [
     id: "rio_10_a_50",
     name: "Curso d'água natural de 10 a 50 metros",
     tipo_geom: "multiPolygon",
-    editable: true,
-    required: false
+    editable: false,
+    required: false,
+    view_calculation: false,
+    fill: "#A137FF99",
+    outline: "#A137FFFF",
   },
   {
     tema_id: 12,
@@ -600,8 +765,11 @@ export const LAYER_TYPES = [
     id: "rio_200_a_600",
     name: "Curso d'água natural de 200 a 600 metros",
     tipo_geom: "multiPolygon",
-    editable: true,
-    required: false
+    editable: false,
+    required: false,
+    view_calculation: false,
+    fill: "#FF573899",
+    outline: "#FF5738FF",
   },
   {
     tema_id: 11,
@@ -610,8 +778,11 @@ export const LAYER_TYPES = [
     id: "rio_50_a_200",
     name: "Curso d'água natural de 50 a 200 metros",
     tipo_geom: "multiPolygon",
-    editable: true,
-    required: false
+    editable: false,
+    required: false,
+    view_calculation: false,
+    fill: "#38FF5799",
+    outline: "#38FF57FF",
   },
   {
     tema_id: 9,
@@ -620,8 +791,11 @@ export const LAYER_TYPES = [
     id: "rio_ate_10",
     name: "Curso d'água natural de até 10 metros",
     tipo_geom: "multiPolygon",
-    editable: true,
-    required: false
+    editable: false,
+    required: false,
+    view_calculation: false,
+    fill: "#3857FF99",
+    outline: "#3857FFFF",
   },
   {
     tema_id: 14,
@@ -630,8 +804,11 @@ export const LAYER_TYPES = [
     id: "lago_natural",
     name: "Lago ou lagoa natural",
     tipo_geom: "multiPolygon",
-    editable: true,
-    required: false
+    editable: false,
+    required: false,
+    view_calculation: false,
+    fill: "#FF38A199",
+    outline: "#FF38A1FF",
   },
   {
     tema_id: 17,
@@ -640,8 +817,11 @@ export const LAYER_TYPES = [
     id: "manguezal",
     name: "Manguezal",
     tipo_geom: "multiPolygon",
-    editable: true,
-    required: false
+    editable: false,
+    required: false,
+    view_calculation: false,
+    fill: "#A1FF3899",
+    outline: "#A1FF38FF",
   },
   {
     tema_id: 15,
@@ -650,8 +830,11 @@ export const LAYER_TYPES = [
     id: "nascente_olho_dagua",
     name: "Nascente ou olho d'água perene",
     tipo_geom: "point",
-    editable: true,
-    required: false
+    editable: false,
+    required: false,
+    view_calculation: false,
+    fill: "#38A1FF99",
+    outline: "#38A1FFFF",
   },
   {
     tema_id: 16,
@@ -660,8 +843,11 @@ export const LAYER_TYPES = [
     id: "reservatorio_artificial_decorrente_barramento",
     name: "Reservatório artificial decorrente de barramento ou represamento de cursos d'água naturais",
     tipo_geom: "multiPolygon",
-    editable: true,
-    required: false
+    editable: false,
+    required: false,
+    view_calculation: false,
+    fill: "#FFA13899",
+    outline: "#FFA138FF",
   },
   {
     tema_id: 82,
@@ -670,8 +856,11 @@ export const LAYER_TYPES = [
     id: "reservatorio_geracao_energia_ate_24_08_2001",
     name: "Reservatório de geração de energia elétrica construído até 24/08/2001",
     tipo_geom: "multiPolygon",
-    editable: true,
-    required: false
+    editable: false,
+    required: false,
+    view_calculation: false,
+    fill: "#5838FF99",
+    outline: "#5838FFFF",
   },
   {
     tema_id: 35,
@@ -680,8 +869,11 @@ export const LAYER_TYPES = [
     id: "restinga",
     name: "Restinga",
     tipo_geom: "multiPolygon",
-    editable: true,
-    required: false
+    editable: false,
+    required: false,
+    view_calculation: false,
+    fill: "#38FFA199",
+    outline: "#38FFA1FF",
   },
   {
     tema_id: 18,
@@ -690,8 +882,11 @@ export const LAYER_TYPES = [
     id: "vereda",
     name: "Vereda",
     tipo_geom: "multiPolygon",
-    editable: true,
-    required: false
+    editable: false,
+    required: false,
+    view_calculation: false,
+    fill: "#FF38FF99",
+    outline: "#FF38FFFF",
   },
   {
     tema_id: 32,
@@ -701,7 +896,10 @@ export const LAYER_TYPES = [
     name: "Área de Reserva Legal Total",
     tipo_geom: "multiPolygon",
     editable: false,
-    required: false
+    required: false,
+    view_calculation: false,
+    fill: "#A138FF99",
+    outline: "#A138FFFF",
   },
   {
     tema_id: 25,
@@ -710,8 +908,11 @@ export const LAYER_TYPES = [
     id: "arl_aprovada_nao_averbada",
     name: "Reserva Legal Aprovada e não Averbada",
     tipo_geom: "multiPolygon",
-    editable: true,
-    required: false
+    editable: false,
+    required: false,
+    view_calculation: false,
+    fill: "#FF573999",
+    outline: "#FF5739FF",
   },
   {
     tema_id: 24,
@@ -720,8 +921,11 @@ export const LAYER_TYPES = [
     id: "arl_averbada",
     name: "Reserva Legal Averbada",
     tipo_geom: "multiPolygon",
-    editable: true,
-    required: false
+    editable: false,
+    required: false,
+    view_calculation: false,
+    fill: "#39FF5799",
+    outline: "#39FF57FF",
   },
   {
     tema_id: 23,
@@ -730,8 +934,11 @@ export const LAYER_TYPES = [
     id: "arl_proposta",
     name: "Reserva Legal Proposta",
     tipo_geom: "multiPolygon",
-    editable: true,
-    required: false
+    editable: false,
+    required: false,
+    view_calculation: false,
+    fill: "#3957FF99",
+    outline: "#3957FFFF",
   },
   {
     tema_id: 80,
@@ -740,8 +947,11 @@ export const LAYER_TYPES = [
     id: "arl_averbada_outro_imovel",
     name: "Reserva Legal vinculada à compensação de outro imóvel",
     tipo_geom: "multiPolygon",
-    editable: true,
-    required: false
+    editable: false,
+    required: false,
+    view_calculation: false,
+    fill: "#FF39A199",
+    outline: "#FF39A1FF",
   },
   {
     tema_id: null,
@@ -752,29 +962,32 @@ export const LAYER_TYPES = [
     tipo_geom: "multiPolygon",
     editable: false,
     required: false,
-  }
+    view_calculation: false,
+    fill: "#A1FF3999",
+    outline: "#A1FF39FF",
+  },
 ];
 
 // Preencha dinamicamente as opções para cada grupo
-export const GROUP_LAYER = BASE_GROUP_LAYER.map(group => {
+export const GROUP_LAYER = BASE_GROUP_LAYER.map((group) => {
   // Filtrar LAYER_TYPES para obter apenas itens que pertencem a este grupo
-  const groupOptions = LAYER_TYPES.filter(layer => layer.grupo === group.id)
+  const groupOptions = LAYER_TYPES.filter((layer) => layer.grupo === group.id)
     // Classificar pela propriedade de order para manter a ordem pretendida
     .sort((a, b) => a.order - b.order)
     // Mapear para o formato que você deseja para opções
-    .map(layer => ({
+    .map((layer) => ({
       id: layer.id,
       name: layer.name,
       tema_id: layer.tema_id,
       tipo_geom: layer.tipo_geom,
       editable: layer.editable,
-      required: layer.required
+      required: layer.required,
     }));
 
   // Retornar o grupo com opções preenchidas
   return {
     ...group,
-    options: groupOptions
+    options: groupOptions,
   };
 });
 

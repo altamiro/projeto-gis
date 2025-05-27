@@ -16,21 +16,21 @@
             :class="{ active: currentTool === 'point' }"
             @click="setTool('point')"
             size="medium"
-            icon="el-icon-map-location"
+            icon="el-icon-location-outline"
           )
         el-tooltip(content="Desenhar Linha" placement="right")
           el-button(
             :class="{ active: currentTool === 'polyline' }"
             @click="setTool('polyline')"
             size="medium"
-            icon="el-icon-connection"
+            icon="el-icon-minus"
           )
         el-tooltip(content="Desenhar Polígono" placement="right")
           el-button(
             :class="{ active: currentTool === 'polygon' }"
             @click="setTool('polygon')"
             size="medium"
-            icon="el-icon-full-screen"
+            icon="el-icon-crop"
           )
 
         el-tooltip(content="Selecionar/Editar" placement="right")
