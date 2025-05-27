@@ -40,6 +40,29 @@ export default {
         }
       }
     },
+    REMOVE_GRAPHIC_FROM_LAYER(state, { layerId, graphicId }) {
+      const layer = state.layers.find((l) => l.id === layerId);
+      if (layer && layer.graphics) {
+        // Remover o gráfico específico
+        layer.graphics = layer.graphics.filter(
+          (g) => !(g.attributes && g.attributes.id === graphicId)
+        );
+
+        // Recalcular a área se houver geometrias restantes
+        if (layer.graphics.length > 0) {
+          let totalArea = 0;
+          layer.graphics.forEach((graphic) => {
+            if (graphic.geometry) {
+              const area = arcgisService.calculateArea(graphic.geometry);
+              totalArea += area;
+            }
+          });
+          layer.area = totalArea;
+        } else {
+          layer.area = 0;
+        }
+      }
+    },
   },
   actions: {
     selectLayer({ commit, state, rootState, dispatch }, layerId) {
@@ -694,6 +717,61 @@ export default {
           { root: true }
         );
         return false;
+      }
+    },
+    removeGraphicFromLayer(
+      { commit, state, dispatch },
+      { layerId, graphicId }
+    ) {
+      try {
+        const layer = state.layers.find((l) => l.id === layerId);
+        if (!layer) {
+          console.warn(`Camada ${layerId} não encontrada`);
+          return { success: false };
+        }
+
+        // Remover gráfico do serviço ArcGIS
+        if (window.arcgisService) {
+          const arcgisLayer = window.arcgisService.layers[layerId];
+          if (arcgisLayer) {
+            const graphic = arcgisLayer.graphics.find(
+              (g) => g.attributes && g.attributes.id === graphicId
+            );
+            if (graphic) {
+              arcgisLayer.remove(graphic);
+            }
+          }
+        }
+
+        // Atualizar o estado no Vuex
+        commit("REMOVE_GRAPHIC_FROM_LAYER", { layerId, graphicId });
+
+        // Se não houver mais gráficos na camada, remover a camada inteira
+        const updatedLayer = state.layers.find((l) => l.id === layerId);
+        if (
+          updatedLayer &&
+          (!updatedLayer.graphics || updatedLayer.graphics.length === 0)
+        ) {
+          // Remover a camada completamente
+          return dispatch("removeLayer", layerId);
+        }
+
+        // Recalcular áreas se necessário
+        if (layerId === "area_imovel") {
+          dispatch("property/calculateNetarea_imovel", null, { root: true });
+        }
+
+        // Recalcular área antropizada
+        dispatch(
+          "property/calculatearea_antropizada_apos_2008_vetorizada",
+          null,
+          { root: true }
+        );
+
+        return { success: true };
+      } catch (error) {
+        console.error("Erro ao remover gráfico da camada:", error);
+        return { success: false, error: error.message };
       }
     },
   },

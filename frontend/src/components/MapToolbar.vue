@@ -246,6 +246,17 @@ export default {
       this.sketchViewModel = null;
     }
   },
+  watch: {
+    currentTool(newTool, oldTool) {
+      // Quando mudar de ferramenta de seleção para outra, limpar a seleção
+      if (['select', 'rectangle-selection', 'lasso-selection'].includes(oldTool) &&
+        !['select', 'rectangle-selection', 'lasso-selection'].includes(newTool)) {
+        if (this.hasSelection) {
+          arcgisService.clearSketchSelection();
+        }
+      }
+    }
+  },
   computed: {
     ...mapState({
       selectedLayer: state => state.layers.selectedLayer,
@@ -326,6 +337,25 @@ export default {
       return this.layers && this.layers.length > 0;
     }
   },
+
+  mounted() {
+
+    this.$nextTick(() => {
+      if (arcgisService.view) {
+        // Inicializar o sketch quando o componente for montado
+        this.initializeSketch();
+
+        // Escutar eventos de mudança de estado do sketch
+        arcgisService.view.on('sketch-state-changed', (event) => {
+          this.canUndo = event.canUndo || false;
+          this.canRedo = event.canRedo || false;
+          this.hasSelection = event.hasSelection || false;
+        });
+      }
+    });
+
+  },
+
   methods: {
     ...mapActions({
       addLayer: 'layers/addLayer',
@@ -347,6 +377,17 @@ export default {
         return;
       }
 
+      // Verificar se existem camadas desenhadas antes de ativar ferramentas de seleção
+      if (['select', 'rectangle-selection', 'lasso-selection'].includes(tool)) {
+        if (!this.hasDrawnLayers) {
+          this.addAlert({
+            type: 'info',
+            message: 'Desenhe algumas camadas antes de usar as ferramentas de seleção.'
+          });
+          return;
+        }
+      }
+
       // Desativa qualquer ferramenta ativa anterior
       this.deactivateCurrentTool();
 
@@ -356,6 +397,7 @@ export default {
       // Ativa a nova ferramenta
       this.activateTool(tool);
     },
+
     activateTool(tool) {
       // Garantir que o sketch está inicializado
       if (!this.sketch) {
@@ -375,13 +417,13 @@ export default {
           this.startSketchCreation(tool);
           break;
         case 'select':
-          this.enableSelection();
+          arcgisService.activateSelectionMode();
           break;
         case 'rectangle-selection':
-          this.enableRectangleSelection();
+          arcgisService.activateRectangleSelection();
           break;
         case 'lasso-selection':
-          this.enableLassoSelection();
+          arcgisService.activateLassoSelection();
           break;
         case 'measure':
           this.startMeasurement();
@@ -401,7 +443,7 @@ export default {
           break;
         case 'polygon':
         case 'point':
-        case 'line':
+        case 'polyline':
           if (this.isDrawing) {
             arcgisService.cancelDrawing();
             this.isDrawing = false;
@@ -414,11 +456,11 @@ export default {
         case 'cut':
           this.cancelCutOperation();
           break;
-        case 'sketch-point':
-        case 'sketch-polyline':
-        case 'sketch-polygon':
-          arcgisService.cancelSketch();
-          this.clearSketchEventHandlers();
+        case 'select':
+        case 'rectangle-selection':
+        case 'lasso-selection':
+          // Limpar seleção ao mudar de ferramenta
+          arcgisService.clearSketchSelection();
           break;
       }
     },
@@ -1204,13 +1246,24 @@ export default {
     },
 
     initializeSketch() {
-      const sketchResult = arcgisService.initializeSketch();
-      if (sketchResult) {
-        this.sketch = sketchResult.sketch;
-        this.sketchViewModel = sketchResult.viewModel;
+      try {
+        const sketchResult = arcgisService.initializeSketch();
+        if (sketchResult) {
+          this.sketch = sketchResult.sketch;
+          this.sketchViewModel = sketchResult.viewModel;
 
-        // Configurar eventos do sketch
-        this.setupSketchEvents();
+          // Configurar eventos do sketch
+          this.setupSketchEvents();
+
+          // Atualizar estado inicial
+          this.updateSketchState();
+        }
+      } catch (error) {
+        console.error('Erro ao inicializar sketch:', error);
+        this.addAlert({
+          type: 'error',
+          message: 'Erro ao inicializar ferramentas de desenho.'
+        });
       }
     },
 
@@ -1224,16 +1277,19 @@ export default {
         }
       });
 
-      // Evento de atualização
+      // Evento de atualização - importante para sincronizar com as camadas originais
       this.sketch.on('update', (event) => {
         if (event.state === 'complete') {
           this.handleSketchUpdate(event);
+          // Sincronizar mudanças de volta para as camadas originais
+          arcgisService.syncSketchToLayers(event);
         }
         this.updateSketchState();
       });
 
       // Evento de exclusão
-      this.sketch.on('delete', () => {
+      this.sketch.on('delete', (event) => {
+        this.handleSketchDelete(event);
         this.updateSketchState();
       });
 
@@ -1245,14 +1301,6 @@ export default {
       this.sketch.on('redo', () => {
         this.updateSketchState();
       });
-
-      // Monitorar mudanças no viewModel
-      if (this.sketchViewModel) {
-        this.sketchViewModel.watch(['canUndo', 'canRedo'], () => {
-          this.canUndo = this.sketchViewModel.canUndo;
-          this.canRedo = this.sketchViewModel.canRedo;
-        });
-      }
     },
 
     startSketchCreation(tool) {
@@ -1274,38 +1322,15 @@ export default {
     },
 
     enableSelection() {
-      if (!this.sketch) return;
-
-      // Cancelar qualquer criação em andamento
-      this.sketch.cancel();
-
-      // O modo de seleção é o padrão quando não está criando
-      this.updateSketchState();
+      arcgisService.activateSelectionMode();
     },
 
     enableRectangleSelection() {
-      if (!this.sketch) return;
-
-      this.sketch.cancel();
-
-      // Ativar seleção por retângulo
-      // Nota: Isso pode requerer configuração adicional do SketchViewModel
-      if (this.sketchViewModel) {
-        this.sketchViewModel.multipleSelectionEnabled = true;
-        this.sketchViewModel.selectionMode = 'rectangle';
-      }
+      arcgisService.activateRectangleSelection();
     },
 
     enableLassoSelection() {
-      if (!this.sketch) return;
-
-      this.sketch.cancel();
-
-      // Ativar seleção por laço
-      if (this.sketchViewModel) {
-        this.sketchViewModel.multipleSelectionEnabled = true;
-        this.sketchViewModel.selectionMode = 'lasso';
-      }
+      arcgisService.activateLassoSelection();
     },
 
     handleSketchCreate(event) {
@@ -1370,40 +1395,55 @@ export default {
     },
 
     updateSketchState() {
-      if (!this.sketch) return;
+      if (!this.sketch || !this.sketchViewModel) return;
 
       // Atualizar estado dos botões
-      this.hasSelection = this.sketch.updateGraphics && this.sketch.updateGraphics.length > 0;
+      this.hasSelection = this.sketch.updateGraphics &&
+        this.sketch.updateGraphics.length > 0;
 
-      if (this.sketchViewModel) {
-        this.canUndo = this.sketchViewModel.canUndo;
-        this.canRedo = this.sketchViewModel.canRedo;
-      }
+      this.canUndo = this.sketchViewModel.canUndo || false;
+      this.canRedo = this.sketchViewModel.canRedo || false;
     },
 
     handleUndo() {
-      if (this.sketch && this.sketchViewModel && this.sketchViewModel.canUndo) {
-        this.sketch.undo();
+      if (!this.canUndo) {
+        this.addAlert({
+          type: 'info',
+          message: 'Não há ações para desfazer.'
+        });
+        return;
       }
+
+      arcgisService.undoSketch();
     },
 
     handleRedo() {
-      if (this.sketch && this.sketchViewModel && this.sketchViewModel.canRedo) {
-        this.sketch.redo();
+      if (!this.canRedo) {
+        this.addAlert({
+          type: 'info',
+          message: 'Não há ações para refazer.'
+        });
+        return;
       }
+
+      arcgisService.redoSketch();
     },
 
     clearSelection() {
-      if (this.sketch) {
-        // Limpar gráficos selecionados
-        if (this.sketch.updateGraphics) {
-          this.sketch.updateGraphics.forEach(graphic => {
-            this.sketch.layer.remove(graphic);
-          });
-        }
-        this.sketch.cancel();
-        this.updateSketchState();
+      if (!this.hasSelection) {
+        this.addAlert({
+          type: 'info',
+          message: 'Não há seleção para limpar.'
+        });
+        return;
       }
+
+      arcgisService.clearSketchSelection();
+
+      this.addAlert({
+        type: 'success',
+        message: 'Seleção limpa com sucesso.'
+      });
     },
 
     clearSketch() {
@@ -1691,6 +1731,38 @@ export default {
         return null;
       }
     },
+    handleSketchDelete(event) {
+      // Quando um gráfico é deletado no sketch, sincronizar com a camada original
+      if (event.graphics && event.graphics.length > 0) {
+        event.graphics.forEach(graphic => {
+          if (graphic.attributes && graphic.attributes.originalLayer) {
+            // Verificar se temos o ID original do gráfico
+            const graphicId = graphic.attributes.originalGraphicId || graphic.attributes.id;
+
+            if (graphicId) {
+              // Chamar a action para remover o gráfico da camada original
+              this.$store.dispatch('layers/removeGraphicFromLayer', {
+                layerId: graphic.attributes.originalLayer,
+                graphicId: graphicId
+              }).then(result => {
+                if (result && result.success) {
+                  this.addAlert({
+                    type: 'success',
+                    message: 'Geometria removida com sucesso.'
+                  });
+                }
+              }).catch(error => {
+                console.error('Erro ao remover gráfico:', error);
+                this.addAlert({
+                  type: 'error',
+                  message: 'Erro ao remover a geometria.'
+                });
+              });
+            }
+          }
+        });
+      }
+    }
   }
 };
 </script>

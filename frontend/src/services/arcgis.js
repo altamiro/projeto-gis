@@ -174,6 +174,7 @@ export class ArcGISService {
     return this.view.when();
   }
 
+  // Substituir o método initializeSketch() existente por:
   initializeSketch() {
     if (!this.view) {
       console.error("View não está inicializada");
@@ -228,11 +229,34 @@ export class ArcGISService {
             "lasso-selection": true,
           },
           settingsMenu: false,
+          undoRedoMenu: true, // Habilitar menu de undo/redo
+          deleteButton: true, // Habilitar botão de deletar
         },
       });
 
-      // Adicionar o widget à view (opcional - pode ser controlado programaticamente)
-      // this.view.ui.add(this.sketchWidget, "top-right");
+      // Configurar eventos do SketchViewModel
+      if (this.sketchWidget.viewModel) {
+        // Monitorar mudanças no estado de undo/redo
+        this.sketchWidget.viewModel.watch(["canUndo", "canRedo"], () => {
+          // Emitir evento customizado para atualizar a UI
+          this.view.emit("sketch-state-changed", {
+            canUndo: this.sketchWidget.viewModel.canUndo,
+            canRedo: this.sketchWidget.viewModel.canRedo,
+            hasSelection:
+              this.sketchWidget.updateGraphics &&
+              this.sketchWidget.updateGraphics.length > 0,
+          });
+        });
+
+        // Monitorar mudanças na seleção
+        this.sketchWidget.on("update", (event) => {
+          this.view.emit("sketch-state-changed", {
+            canUndo: this.sketchWidget.viewModel.canUndo,
+            canRedo: this.sketchWidget.viewModel.canRedo,
+            hasSelection: event.graphics && event.graphics.length > 0,
+          });
+        });
+      }
     }
 
     return {
@@ -2175,6 +2199,380 @@ export class ArcGISService {
     this.clearSketch();
 
     return true;
+  }
+
+  /**
+   * Ativa o modo de seleção padrão do Sketch
+   */
+  activateSelectionMode() {
+    if (!this.sketchWidget) {
+      this.initializeSketch();
+    }
+
+    // Aguardar o sketch estar pronto
+    if (!this.isSketchReady()) {
+      console.warn("Sketch não está pronto");
+      return;
+    }
+
+    // Cancelar qualquer criação em andamento
+    this.sketchWidget.cancel();
+
+    // Copiar gráficos das camadas existentes para a camada sketch
+    this.copyLayersToSketch();
+
+    // O modo de seleção é o padrão quando não está criando
+    // Não precisa fazer nada adicional, o sketch já permite seleção por clique
+  }
+
+  /**
+   * Ativa o modo de seleção retangular
+   */
+  activateRectangleSelection() {
+    if (!this.sketchWidget) {
+      this.initializeSketch();
+    }
+
+    if (!this.isSketchReady()) {
+      console.warn("Sketch não está pronto");
+      return;
+    }
+
+    // Cancelar qualquer operação em andamento
+    this.sketchWidget.cancel();
+
+    // Copiar gráficos se necessário
+    if (this.sketchLayer.graphics.length === 0) {
+      this.copyLayersToSketch();
+    }
+
+    // Criar um retângulo temporário para seleção
+    this.sketchWidget.create("rectangle", {
+      mode: "click",
+    });
+
+    // Escutar o evento de criação completa
+    const handler = this.sketchWidget.on("create", (event) => {
+      if (event.state === "complete" && event.tool === "rectangle") {
+        const rectangleGraphic = event.graphic;
+
+        // Usar o retângulo para selecionar gráficos
+        this.selectGraphicsInGeometry(rectangleGraphic.geometry);
+
+        // Remover o retângulo após um pequeno delay para evitar conflitos
+        setTimeout(() => {
+          if (this.sketchLayer.graphics.includes(rectangleGraphic)) {
+            this.sketchLayer.remove(rectangleGraphic);
+          }
+        }, 100);
+
+        // Remover o handler
+        handler.remove();
+      }
+    });
+  }
+
+  /**
+   * Ativa o modo de seleção por laço
+   */
+  activateLassoSelection() {
+    if (!this.sketchWidget) {
+      this.initializeSketch();
+    }
+
+    if (!this.isSketchReady()) {
+      console.warn("Sketch não está pronto");
+      return;
+    }
+
+    // Cancelar qualquer operação em andamento
+    this.sketchWidget.cancel();
+
+    // Copiar gráficos se necessário
+    if (this.sketchLayer.graphics.length === 0) {
+      this.copyLayersToSketch();
+    }
+
+    // Criar um polígono para seleção tipo laço
+    this.sketchWidget.create("polygon", {
+      mode: "freehand",
+    });
+
+    // Escutar o evento de criação completa
+    const handler = this.sketchWidget.on("create", (event) => {
+      if (event.state === "complete" && event.tool === "polygon") {
+        const lassoGraphic = event.graphic;
+
+        // Usar o polígono para selecionar gráficos
+        this.selectGraphicsInGeometry(lassoGraphic.geometry);
+
+        // Remover o polígono após um pequeno delay
+        setTimeout(() => {
+          if (this.sketchLayer.graphics.includes(lassoGraphic)) {
+            this.sketchLayer.remove(lassoGraphic);
+          }
+        }, 100);
+
+        // Remover o handler
+        handler.remove();
+      }
+    });
+  }
+
+  /**
+   * Copia gráficos das camadas existentes para a camada sketch
+   */
+  copyLayersToSketch() {
+    // Limpar a camada sketch primeiro
+    this.sketchLayer.removeAll();
+
+    // Copiar gráficos de todas as camadas editáveis
+    Object.keys(this.layers).forEach((layerId) => {
+      // Pular camadas especiais
+      if (
+        ["sketch", "temp", "measurement", "centroid", "municipality"].includes(
+          layerId
+        )
+      ) {
+        return;
+      }
+
+      const layer = this.layers[layerId];
+      if (layer && layer.graphics && layer.graphics.length > 0) {
+        layer.graphics.forEach((graphic, index) => {
+          // Criar novo gráfico para a camada sketch
+          const newGraphic = new this.Graphic({
+            geometry: graphic.geometry.clone(),
+            symbol: graphic.symbol
+              ? graphic.symbol.clone()
+              : this.getDefaultSymbol(layerId),
+            attributes: {
+              // Preservar atributos originais
+              ...graphic.attributes,
+              // Adicionar informações para rastreamento
+              originalLayer: layerId,
+              originalGraphicId:
+                graphic.attributes?.id || `${layerId}_${index}`,
+              // Adicionar o nome da camada para referência
+              layerName: this.getLayerName(layerId),
+            },
+          });
+          this.sketchLayer.add(newGraphic);
+        });
+      }
+    });
+
+    console.log(
+      `Copiados ${this.sketchLayer.graphics.length} gráficos para a camada sketch`
+    );
+  }
+
+  /**
+   * Seleciona gráficos dentro de uma geometria
+   */
+  selectGraphicsInGeometry(geometry) {
+    const graphicsToSelect = [];
+
+    // Usar apenas gráficos que estão na camada do sketch
+    this.sketchLayer.graphics.forEach((graphic) => {
+      if (graphic.geometry) {
+        let isInside = false;
+
+        if (graphic.geometry.type === "point") {
+          isInside = this.geometryEngine.contains(geometry, graphic.geometry);
+        } else {
+          isInside = this.geometryEngine.intersects(geometry, graphic.geometry);
+        }
+
+        if (isInside) {
+          graphicsToSelect.push(graphic);
+        }
+      }
+    });
+
+    // Atualizar a seleção no sketch apenas com gráficos da camada sketch
+    if (graphicsToSelect.length > 0) {
+      // Garantir que os gráficos pertencem à camada do sketch
+      const validGraphics = graphicsToSelect.filter((g) =>
+        this.sketchLayer.graphics.includes(g)
+      );
+
+      if (validGraphics.length > 0) {
+        this.sketchWidget.update(validGraphics, {
+          tool: "transform",
+          enableRotation: true,
+          enableScaling: true,
+          multipleSelectionEnabled: true,
+        });
+      }
+    }
+  }
+
+  /**
+   * Executa undo no sketch
+   */
+  undoSketch() {
+    if (
+      this.sketchWidget &&
+      this.sketchWidget.viewModel &&
+      this.sketchWidget.viewModel.canUndo
+    ) {
+      this.sketchWidget.undo();
+    }
+  }
+
+  /**
+   * Executa redo no sketch
+   */
+  redoSketch() {
+    if (
+      this.sketchWidget &&
+      this.sketchWidget.viewModel &&
+      this.sketchWidget.viewModel.canRedo
+    ) {
+      this.sketchWidget.redo();
+    }
+  }
+
+  /**
+   * Limpa a seleção atual
+   */
+  clearSketchSelection() {
+    if (this.sketchWidget) {
+      // Cancelar qualquer operação de update
+      this.sketchWidget.cancel();
+
+      // Se houver gráficos selecionados, desmarcar
+      if (
+        this.sketchWidget.updateGraphics &&
+        this.sketchWidget.updateGraphics.length > 0
+      ) {
+        this.sketchWidget.viewModel.updateGraphics.removeAll();
+      }
+    }
+  }
+
+  /**
+   * Sincroniza mudanças do sketch de volta para as camadas originais
+   */
+  syncSketchToLayers(event) {
+    if (event.state === "complete" && event.graphics) {
+      event.graphics.forEach((graphic) => {
+        if (graphic.attributes && graphic.attributes.originalLayer) {
+          const originalLayer = graphic.attributes.originalLayer;
+          const layer = this.layers[originalLayer];
+
+          if (layer) {
+            // Encontrar e atualizar o gráfico original
+            const originalGraphic = layer.graphics.find(
+              (g) => g.attributes && g.attributes.id === graphic.attributes.id
+            );
+
+            if (originalGraphic) {
+              originalGraphic.geometry = graphic.geometry.clone();
+            }
+          }
+        }
+      });
+    }
+  }
+
+  /**
+   * Verifica se o widget Sketch está pronto para uso
+   */
+  isSketchReady() {
+    return this.sketchWidget && this.sketchLayer && this.view;
+  }
+
+  /**
+   * Sincroniza mudanças do sketch de volta para as camadas originais
+   */
+  syncSketchToLayers(event) {
+    if (event.state === "complete" && event.graphics) {
+      event.graphics.forEach((graphic) => {
+        if (graphic.attributes && graphic.attributes.originalLayer) {
+          const originalLayer = graphic.attributes.originalLayer;
+          const layer = this.layers[originalLayer];
+
+          if (layer) {
+            // Encontrar o gráfico original pelo ID
+            const originalGraphic = layer.graphics.find(
+              (g) =>
+                g.attributes &&
+                g.attributes.id === graphic.attributes.originalGraphicId
+            );
+
+            if (originalGraphic) {
+              // Atualizar apenas a geometria
+              originalGraphic.geometry = graphic.geometry.clone();
+
+              // Emitir evento para atualizar o Vuex se necessário
+              if (this.view) {
+                this.view.emit("geometry-updated", {
+                  layerId: originalLayer,
+                  geometry: originalGraphic.geometry,
+                  graphicId: graphic.attributes.originalGraphicId,
+                });
+              }
+            }
+          }
+        }
+      });
+    }
+  }
+
+  /**
+   * Remove gráficos órfãos da camada sketch
+   */
+  cleanOrphanGraphics() {
+    if (!this.sketchLayer) return;
+
+    const graphicsToRemove = [];
+
+    this.sketchLayer.graphics.forEach((graphic) => {
+      // Verificar se é um gráfico temporário de seleção
+      if (!graphic.attributes || !graphic.attributes.originalLayer) {
+        graphicsToRemove.push(graphic);
+      }
+    });
+
+    // Remover gráficos órfãos
+    graphicsToRemove.forEach((graphic) => {
+      this.sketchLayer.remove(graphic);
+    });
+  }
+
+  /**
+   * Limpa completamente o sketch e reinicializa
+   */
+  resetSketch() {
+    if (this.sketchWidget) {
+      this.sketchWidget.cancel();
+    }
+
+    if (this.sketchLayer) {
+      this.sketchLayer.removeAll();
+    }
+
+    // Recopiar as camadas
+    this.copyLayersToSketch();
+  }
+  /**
+   * Obtém o nome amigável de uma camada
+   */
+  getLayerName(layerId) {
+    const layerNames = {
+      area_imovel: "Área do Imóvel",
+      sede_imovel: "Sede do Imóvel",
+      area_consolidada: "Área Consolidada",
+      vegetacao_nativa: "Vegetação Nativa",
+      area_pousio: "Área de Pousio",
+      area_servidao_administrativa_total: "Servidão Administrativa",
+      hydrography: "Hidrografia",
+      area_antropizada_apos_2008_vetorizada: "Área Antropizada após 2008",
+    };
+
+    return layerNames[layerId] || layerId;
   }
 }
 
